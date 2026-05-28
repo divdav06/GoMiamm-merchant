@@ -1,0 +1,107 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+
+import { signInWithPassword } from "@/lib/auth";
+
+const ERROR_COPY: Record<string, string> = {
+  not_partner: "That account isn't a GoMiamm partner. Contact your account manager if this is unexpected.",
+};
+
+export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryError = searchParams.get("error");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(queryError ? ERROR_COPY[queryError] ?? queryError : null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await signInWithPassword(email.trim(), password);
+      // The dashboard layout runs the restaurant_users check and will
+      // bounce non-partners to /login?error=not_partner via /api/sign-out.
+      router.replace("/dashboard");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-gray-50">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand text-white text-2xl font-black mb-4 shadow-sm">
+            G
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">GoMiamm Merchant</h1>
+          <p className="text-sm text-gray-500 mt-1">Sign in to manage your restaurant.</p>
+        </div>
+
+        <form
+          onSubmit={onSubmit}
+          className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4"
+        >
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+              placeholder="owner@restaurant.com"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={busy || !email || !password}
+            className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-brand text-white font-semibold shadow-sm hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+
+        <p className="text-center text-xs text-gray-400 mt-6">
+          Need help? Contact <span className="text-gray-600">partners@gomiamm.com</span>.
+        </p>
+      </div>
+    </main>
+  );
+}
