@@ -34,7 +34,13 @@ type Input = {
 const PLACEHOLDER_LAT = 0;
 const PLACEHOLDER_LNG = 0;
 const PLACEHOLDER_ADDRESS = "Pending onboarding";
-const PLACEHOLDER_CATEGORY = "Other";
+// stores_category_check restricts category to the lowercase set
+// ('food','grocery','pharmacy','coffee','dessert','other'). 'other'
+// is the neutral pre-onboarding placeholder; the real cuisine value
+// is collected later as restaurant_signups.operations_info.cuisine_type
+// in F.4 (which is independent of stores.category — they're separate
+// columns).
+const PLACEHOLDER_CATEGORY = "other";
 
 export async function signUpRestaurant(input: Input): Promise<SignUpResult> {
   const email = input.email.trim().toLowerCase();
