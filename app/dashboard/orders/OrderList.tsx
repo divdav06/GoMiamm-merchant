@@ -75,18 +75,31 @@ export function OrderList({ storeId, initialOrders }: Props) {
   const orderIdsRef = useRef<Set<string>>(new Set(initialOrders.map((o) => o.id)));
 
   const refetchOne = useCallback(async (orderId: string) => {
+    // Same two-hop pattern as orders/page.tsx — there's no FK from
+    // orders.client_id to profiles, so we fetch the order with
+    // client_id only, then look up the customer name from profiles
+    // separately and stitch it on.
     const supabase = createBrowserSupabase();
-    const { data } = await supabase
+    const { data: order } = await supabase
       .from("orders")
       .select(`
         id, order_number, status, subtotal, delivery_fee, service_fee, tip, total,
-        client_notes, created_at,
-        client:profiles!orders_client_id_fkey(id, full_name),
+        client_id, client_notes, created_at,
         items:order_items(id, name, quantity, price, subtotal)
       `)
       .eq("id", orderId)
       .maybeSingle();
-    return (data as unknown as ActiveOrder | null);
+    if (!order) return null;
+    let client: { id: string; full_name: string | null } | null = null;
+    if (order.client_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("id", order.client_id)
+        .maybeSingle();
+      client = (profile as { id: string; full_name: string | null } | null) ?? null;
+    }
+    return ({ ...order, client } as unknown as ActiveOrder);
   }, []);
 
   useEffect(() => {

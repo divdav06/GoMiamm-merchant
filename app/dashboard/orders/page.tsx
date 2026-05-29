@@ -12,7 +12,13 @@ export default async function OrdersPage() {
   if (!access) return null;
 
   const supabase = createServerSupabase(cookies());
-  const { data: orders, error } = await supabase
+
+  // orders.client_id is FK'd to clients (not profiles), and clients
+  // has no full_name column. Customer display names live in profiles
+  // (profiles.id == clients.id == auth.users.id by construction; see
+  // the customer-register edge function). Fetch orders + items inline,
+  // then resolve names with a second profiles lookup.
+  const { data: ordersData, error } = await supabase
     .from("orders")
     .select(`
       id,
@@ -23,9 +29,9 @@ export default async function OrdersPage() {
       service_fee,
       tip,
       total,
+      client_id,
       client_notes,
       created_at,
-      client:profiles!orders_client_id_fkey(id, full_name),
       items:order_items(id, name, quantity, price, subtotal)
     `)
     .eq("store_id", access.storeId)
@@ -41,6 +47,24 @@ export default async function OrdersPage() {
     );
   }
 
+  const clientIds = Array.from(
+    new Set((ordersData ?? []).map((o) => o.client_id).filter((id): id is string => !!id)),
+  );
+  const profileMap = new Map<string, { id: string; full_name: string | null }>();
+  if (clientIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", clientIds);
+    for (const p of (profiles ?? []) as { id: string; full_name: string | null }[]) {
+      profileMap.set(p.id, p);
+    }
+  }
+  const orders = (ordersData ?? []).map((o) => ({
+    ...o,
+    client: o.client_id ? profileMap.get(o.client_id) ?? null : null,
+  }));
+
   return (
     <div className="max-w-5xl space-y-6">
       <header>
@@ -50,7 +74,7 @@ export default async function OrdersPage() {
         </p>
       </header>
 
-      <OrderList storeId={access.storeId} initialOrders={(orders ?? []) as unknown as ActiveOrder[]} />
+      <OrderList storeId={access.storeId} initialOrders={orders as unknown as ActiveOrder[]} />
     </div>
   );
 }
