@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-import { signInWithPassword } from "@/lib/auth";
+import { signInWithPassword } from "@/lib/auth-client";
 
 const ERROR_COPY: Record<string, string> = {
   not_partner: "That account isn't a GoMiamm partner. Contact your account manager if this is unexpected.",

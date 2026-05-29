@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { signOut } from "@/lib/auth";
+import { signOut } from "@/lib/auth-client";
 
 type TopBarProps = {
   storeName: string;
