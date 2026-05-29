@@ -8,8 +8,15 @@ import { type NextRequest, NextResponse } from "next/server";
 // edge runtime to keep middleware fast and DB-free.
 
 export async function middleware(request: NextRequest) {
+  // Inject the current pathname as an x-pathname header so server
+  // components (which don't have access to next/navigation's
+  // usePathname) can read their own route. Used by the dashboard
+  // layout's onboarding-redirect loop guard.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+
   let response = NextResponse.next({
-    request: { headers: request.headers },
+    request: { headers: requestHeaders },
   });
 
   const supabase = createServerClient(
@@ -23,14 +30,15 @@ export async function middleware(request: NextRequest) {
         set(name: string, value: string, options: CookieOptions) {
           // Mutate both the request (so the downstream handler sees the
           // refreshed cookie) and the response (so the browser stores
-          // the new value).
+          // the new value). Re-pass requestHeaders so x-pathname stays
+          // attached across the refresh.
           request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
+          response = NextResponse.next({ request: { headers: requestHeaders } });
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
           request.cookies.set({ name, value: "", ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
+          response = NextResponse.next({ request: { headers: requestHeaders } });
           response.cookies.set({ name, value: "", ...options });
         },
       },
