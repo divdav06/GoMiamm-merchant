@@ -1,0 +1,173 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { createBrowserSupabase } from "@/lib/supabase";
+
+import { OrderCard } from "./OrderCard";
+
+export type OrderItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+};
+
+export type ActiveOrder = {
+  id: string;
+  order_number: string | null;
+  status: string;
+  subtotal: number | null;
+  delivery_fee: number | null;
+  service_fee: number | null;
+  tip: number | null;
+  total: number | null;
+  client_notes: string | null;
+  created_at: string;
+  client: { id: string; full_name: string | null } | null;
+  items: OrderItem[];
+};
+
+type Props = {
+  storeId: string;
+  initialOrders: ActiveOrder[];
+};
+
+const ACTIVE_STATUSES = new Set(["pending", "accepted", "preparing", "ready_for_pickup"]);
+
+// Three short beeps when a new pending order lands. We build the tone
+// in a freshly-created AudioContext on each chime so iOS Safari's
+// "context must be created from a user gesture" rule is satisfied as
+// long as the user has interacted with the page at least once
+// (logging in counts). No external audio asset = no Pages deploy
+// asset to manage.
+function playNewOrderChime() {
+  try {
+    type WindowWithWebkit = Window & {
+      webkitAudioContext?: typeof AudioContext;
+    };
+    const AudioCtor: typeof AudioContext | undefined =
+      window.AudioContext ?? (window as WindowWithWebkit).webkitAudioContext;
+    if (!AudioCtor) return;
+    const ctx = new AudioCtor();
+    const now = ctx.currentTime;
+    [0, 0.18, 0.36].forEach((offset) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, now + offset);
+      gain.gain.setValueAtTime(0, now + offset);
+      gain.gain.linearRampToValueAtTime(0.18, now + offset + 0.02);
+      gain.gain.linearRampToValueAtTime(0, now + offset + 0.14);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.16);
+    });
+    setTimeout(() => { void ctx.close().catch(() => {}); }, 700);
+  } catch {
+    // Audio is best-effort; never blow up the realtime stream over it.
+  }
+}
+
+export function OrderList({ storeId, initialOrders }: Props) {
+  const [orders, setOrders] = useState<ActiveOrder[]>(initialOrders);
+  const orderIdsRef = useRef<Set<string>>(new Set(initialOrders.map((o) => o.id)));
+
+  const refetchOne = useCallback(async (orderId: string) => {
+    const supabase = createBrowserSupabase();
+    const { data } = await supabase
+      .from("orders")
+      .select(`
+        id, order_number, status, subtotal, delivery_fee, service_fee, tip, total,
+        client_notes, created_at,
+        client:profiles!orders_client_id_fkey(id, full_name),
+        items:order_items(id, name, quantity, price, subtotal)
+      `)
+      .eq("id", orderId)
+      .maybeSingle();
+    return (data as unknown as ActiveOrder | null);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabase();
+    const channel = supabase
+      .channel(`orders-${storeId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `store_id=eq.${storeId}`,
+        },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            const row = payload.new as { id: string; status: string };
+            if (!ACTIVE_STATUSES.has(row.status)) return;
+            const full = await refetchOne(row.id);
+            if (!full) return;
+            setOrders((prev) => {
+              if (prev.some((p) => p.id === full.id)) return prev;
+              return [...prev, full].sort(byCreatedAt);
+            });
+            orderIdsRef.current.add(full.id);
+            if (full.status === "pending") playNewOrderChime();
+          } else if (payload.eventType === "UPDATE") {
+            const row = payload.new as { id: string; status: string };
+            // Order left the active window — remove.
+            if (!ACTIVE_STATUSES.has(row.status)) {
+              setOrders((prev) => prev.filter((p) => p.id !== row.id));
+              orderIdsRef.current.delete(row.id);
+              return;
+            }
+            const full = await refetchOne(row.id);
+            if (!full) return;
+            const wasKnown = orderIdsRef.current.has(full.id);
+            setOrders((prev) => {
+              const next = prev.some((p) => p.id === full.id)
+                ? prev.map((p) => (p.id === full.id ? full : p))
+                : [...prev, full];
+              return next.sort(byCreatedAt);
+            });
+            orderIdsRef.current.add(full.id);
+            // If this UPDATE actually moved an order INTO our active
+            // window for the first time (rare — most orders INSERT as
+            // pending) and the new status is pending, chime.
+            if (!wasKnown && full.status === "pending") playNewOrderChime();
+          } else if (payload.eventType === "DELETE") {
+            const row = payload.old as { id: string };
+            setOrders((prev) => prev.filter((p) => p.id !== row.id));
+            orderIdsRef.current.delete(row.id);
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [storeId, refetchOne]);
+
+  if (orders.length === 0) {
+    return (
+      <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-10 text-center">
+        <div className="text-sm text-gray-500">No active orders right now.</div>
+        <div className="text-xs text-gray-400 mt-1">New orders will appear here in real time.</div>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-3">
+      {orders.map((order) => (
+        <li key={order.id}>
+          <OrderCard order={order} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function byCreatedAt(a: ActiveOrder, b: ActiveOrder): number {
+  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+}
