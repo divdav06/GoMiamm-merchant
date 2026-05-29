@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { BankingStep } from "@/components/onboarding/BankingStep";
 import { BusinessInfoStep, type BusinessInfo } from "@/components/onboarding/BusinessInfoStep";
+import { ContractStep } from "@/components/onboarding/ContractStep";
 import { OperationsStep, type OperationsInfo } from "@/components/onboarding/OperationsStep";
 import { StepIndicator, type OnboardingStatus } from "@/components/StepIndicator";
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
@@ -14,16 +15,18 @@ import {
   refreshBankingStatus,
   saveBusinessInfo,
   saveOperationsInfo,
+  signContract,
   startBankingOnboarding,
 } from "./actions";
 
-// Phase F.3/F.4/F.5 — first three step forms land. status mapping:
+// Phase F.3–F.6 — all four step forms wired end-to-end. status mapping:
 //   {not_started, business_info} → BusinessInfoStep (prefilled)
 //   operations                   → OperationsStep   (prefilled)
 //   banking                      → BankingStep      (Stripe handoff)
+//   contract_pending             → ContractStep     (signature canvas)
 // status === 'completed' bounces to /dashboard (reverse of the layout's
-// redirect-on-incomplete guard). contract_pending keeps the placeholder
-// until F.6 lands.
+// redirect-on-incomplete guard) — signContract revalidates this path
+// and the next render hits the redirect branch.
 export default async function OnboardingPage() {
   const access = await checkPartnerAccess();
   if (!access) return null;
@@ -54,6 +57,7 @@ export default async function OnboardingPage() {
   const onBusinessStep = status === "not_started" || status === "business_info";
   const onOperationsStep = status === "operations";
   const onBankingStep = status === "banking";
+  const onContractStep = status === "contract_pending";
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -75,14 +79,20 @@ export default async function OnboardingPage() {
           onRefresh={refreshBankingStatus}
           onContinue={completeBanking}
         />
-      ) : (
-        <section className="bg-white border border-dashed border-gray-300 rounded-2xl p-10 text-center">
-          <div className="text-sm font-medium text-gray-700">Step F.6 à venir</div>
-          <p className="text-xs text-gray-500 mt-1">
-            Contract signature lands as soon as its step component ships.
-          </p>
-        </section>
-      )}
+      ) : onContractStep ? (
+        <ContractStep
+          summary={{
+            legal_name: businessInfo?.legal_name ?? access.storeName,
+            dba: businessInfo?.dba ?? "",
+            address: businessInfo?.address ?? "",
+            phone: businessInfo?.phone ?? "",
+            tax_id: businessInfo?.tax_id ?? "",
+            cuisine_type: operationsInfo?.cuisine_type ?? "",
+            email: access.email ?? "",
+          }}
+          onSubmit={signContract}
+        />
+      ) : null}
     </div>
   );
 }
