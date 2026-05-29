@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import type { OnboardingCopy } from "@/lib/onboardingCopy";
+
 // Phase F.5 — Banking step. Hands the merchant off to Stripe Connect
 // Express onboarding to add a bank account / debit card for payouts.
 //
@@ -34,9 +36,18 @@ type Props = {
   onConnect: () => Promise<{ url: string }>;
   onRefresh: () => Promise<RefreshResult>;
   onContinue: () => Promise<void>;
+  copy: OnboardingCopy["banking"];
+  common: OnboardingCopy["common"];
 };
 
-export function BankingStep({ payoutsEnabled, onConnect, onRefresh, onContinue }: Props) {
+export function BankingStep({
+  payoutsEnabled,
+  onConnect,
+  onRefresh,
+  onContinue,
+  copy,
+  common,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const stripeParam = searchParams.get("stripe");
@@ -93,15 +104,13 @@ export function BankingStep({ payoutsEnabled, onConnect, onRefresh, onContinue }
     <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Set up payouts</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Add a bank account so GoMiamm can deposit your weekly earnings.
-          </p>
+          <h2 className="text-lg font-semibold text-gray-900">{copy.title}</h2>
+          <p className="text-sm text-gray-500 mt-1">{copy.subtitle}</p>
         </div>
         {payoutsEnabled && (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
             <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Connected
+            {copy.connected_badge}
           </span>
         )}
       </div>
@@ -114,21 +123,19 @@ export function BankingStep({ payoutsEnabled, onConnect, onRefresh, onContinue }
 
       {autoRefreshing && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Checking Stripe for your latest account status…
+          {copy.auto_refreshing}
         </div>
       )}
 
       <ul className="space-y-2 text-sm text-gray-600">
-        <Bullet>Bank account or debit card for ACH + instant payouts.</Bullet>
-        <Bullet>Automatic weekly payouts every Monday at 04:00 UTC.</Bullet>
-        <Bullet>Trigger an instant manual payout any time from the Payouts page.</Bullet>
+        {copy.bullets.map((b, i) => (
+          <Bullet key={i}>{b}</Bullet>
+        ))}
       </ul>
 
       {!payoutsEnabled && (
         <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 text-xs text-gray-500 leading-relaxed">
-          You&apos;ll be handed off to Stripe&apos;s secure form to enter your
-          bank details. GoMiamm never sees or stores your account number —
-          Stripe holds it and pays you on our behalf.
+          {copy.privacy}
         </div>
       )}
 
@@ -140,7 +147,7 @@ export function BankingStep({ payoutsEnabled, onConnect, onRefresh, onContinue }
             disabled={busy}
             className="inline-flex items-center px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {busy ? "Saving…" : "Continue"}
+            {busy ? common.saving : common.continue}
           </button>
         ) : (
           <button
@@ -149,7 +156,7 @@ export function BankingStep({ payoutsEnabled, onConnect, onRefresh, onContinue }
             disabled={busy || autoRefreshing}
             className="inline-flex items-center px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {busy ? "Opening Stripe…" : "Set up payouts with Stripe"}
+            {busy ? copy.busy_opening : copy.cta_connect}
           </button>
         )}
       </div>

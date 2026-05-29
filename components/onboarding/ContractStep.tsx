@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 
+import type { OnboardingCopy } from "@/lib/onboardingCopy";
+
 // Phase F.6 — Contract signing step. Renders a short summary of the
 // counterparty info gathered so far (business + operations), the legal
 // acceptances, and a signature canvas. On submit the parent action
@@ -37,9 +39,10 @@ type CounterpartySummary = {
 type Props = {
   summary: CounterpartySummary;
   onSubmit: (data: SignContractInput) => Promise<void>;
+  copy: OnboardingCopy["contract"];
 };
 
-export function ContractStep({ summary, onSubmit }: Props) {
+export function ContractStep({ summary, onSubmit, copy }: Props) {
   const sigRef = useRef<SignatureCanvas | null>(null);
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
@@ -98,10 +101,8 @@ export function ContractStep({ summary, onSubmit }: Props) {
       className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-5"
     >
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Sign your partner contract</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          The executed PDF is delivered to your email and stored under your store profile.
-        </p>
+        <h2 className="text-lg font-semibold text-gray-900">{copy.title}</h2>
+        <p className="text-sm text-gray-500 mt-1">{copy.subtitle}</p>
       </div>
 
       {error && (
@@ -113,54 +114,47 @@ export function ContractStep({ summary, onSubmit }: Props) {
       {/* Counterparty summary — what gets baked into the contract cover page */}
       <section className="rounded-xl border border-gray-100 bg-gray-50 p-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
-          Counterparty information
+          {copy.counterparty_heading}
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          <SummaryRow label="Legal name" value={summary.legal_name} />
-          <SummaryRow label="DBA" value={summary.dba || "—"} />
-          <SummaryRow label="Address" value={summary.address} />
-          <SummaryRow label="Phone" value={summary.phone} />
-          <SummaryRow label="Tax ID" value={summary.tax_id} />
-          <SummaryRow label="Cuisine" value={summary.cuisine_type || "—"} />
-          <SummaryRow label="Email" value={summary.email} />
+          <SummaryRow label={copy.counterparty_rows.legal_name} value={summary.legal_name} />
+          <SummaryRow label={copy.counterparty_rows.dba} value={summary.dba || "—"} />
+          <SummaryRow label={copy.counterparty_rows.address} value={summary.address} />
+          <SummaryRow label={copy.counterparty_rows.phone} value={summary.phone} />
+          <SummaryRow label={copy.counterparty_rows.tax_id} value={summary.tax_id} />
+          <SummaryRow label={copy.counterparty_rows.cuisine} value={summary.cuisine_type || "—"} />
+          <SummaryRow label={copy.counterparty_rows.email} value={summary.email} />
         </dl>
       </section>
 
-      {/* Plain-language terms summary. The full contract pages are appended
-          inside the generated PDF by the edge function. */}
-      <section className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-700 leading-relaxed">
-        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-          Key terms
-        </div>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>GoMiamm collects orders, dispatches drivers, and remits net revenue to you.</li>
-          <li>Standard commission rate: 12% of order subtotal (changes notified in writing).</li>
-          <li>Weekly payouts every Monday at 04:00 UTC to your connected Stripe account.</li>
-          <li>You retain ownership of your menu, brand, and customer relationship.</li>
-          <li>Either party may terminate with 30 days&apos; written notice.</li>
-        </ul>
-      </section>
+      {/* Pointer to the signed PDF. The PDF embeds the attorney-reviewed
+          agreement + jurisdictional disclaimers; runtime translation of
+          that legal text goes through legal-agent /generate-disclosures
+          rather than this dictionary (per F.7 spec). */}
+      <p className="text-xs text-gray-500 leading-relaxed">
+        {copy.pdf_note}
+      </p>
 
       {/* Signer identity */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Signer name" required>
+        <Field label={copy.signer_name.label} required>
           <input
             type="text"
             required
             value={signerName}
             onChange={(e) => setSignerName(e.target.value)}
-            placeholder="Your full name"
+            placeholder={copy.signer_name.placeholder}
             className={INPUT_CLS}
             autoComplete="name"
           />
         </Field>
-        <Field label="Title" required>
+        <Field label={copy.signer_title.label} required>
           <input
             type="text"
             required
             value={signerTitle}
             onChange={(e) => setSignerTitle(e.target.value)}
-            placeholder="Owner, Manager, CFO…"
+            placeholder={copy.signer_title.placeholder}
             className={INPUT_CLS}
             autoComplete="organization-title"
           />
@@ -171,7 +165,7 @@ export function ContractStep({ summary, onSubmit }: Props) {
       <div>
         <div className="flex items-center justify-between mb-1">
           <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Signature
+            {copy.signature_label}
             <span className="text-brand ml-0.5">*</span>
           </span>
           <button
@@ -179,7 +173,7 @@ export function ContractStep({ summary, onSubmit }: Props) {
             onClick={onClear}
             className="text-xs font-semibold text-gray-500 hover:text-gray-900"
           >
-            Clear
+            {copy.signature_clear}
           </button>
         </div>
         <div className="rounded-lg border border-gray-300 bg-white overflow-hidden">
@@ -193,12 +187,12 @@ export function ContractStep({ summary, onSubmit }: Props) {
               width: 600,
               height: 180,
               className: "w-full h-44 touch-none",
-              "aria-label": "Signature pad",
+              "aria-label": copy.signature_label,
             }}
           />
         </div>
         <p className="text-[11px] text-gray-400 mt-1">
-          Draw with your mouse, trackpad, or finger. Clear and re-sign if you make a mistake.
+          {copy.signature_hint}
         </p>
       </div>
 
@@ -207,17 +201,17 @@ export function ContractStep({ summary, onSubmit }: Props) {
         <Checkbox
           checked={esign}
           onChange={setEsign}
-          label="I consent to sign electronically (E-SIGN Act)."
+          label={copy.acceptance_esign}
         />
         <Checkbox
           checked={authority}
           onChange={setAuthority}
-          label="I have authority to bind this business to the agreement."
+          label={copy.acceptance_authority}
         />
         <Checkbox
           checked={infoCorrect}
           onChange={setInfoCorrect}
-          label="The information above is accurate and current."
+          label={copy.acceptance_info}
         />
       </div>
 
@@ -227,7 +221,7 @@ export function ContractStep({ summary, onSubmit }: Props) {
           disabled={!canSubmit}
           className="inline-flex items-center px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {busy ? "Signing…" : "Sign & complete onboarding"}
+          {busy ? copy.busy_signing : copy.cta_sign}
         </button>
       </div>
     </form>

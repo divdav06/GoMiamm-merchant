@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import type { OnboardingCopy } from "@/lib/onboardingCopy";
+
 // Phase F.3 — Business info form. Captures the data that goes into
 // restaurant_signups.business_info jsonb (advanced as a single block
 // when the merchant submits — server wiring lands in a follow-up).
@@ -29,9 +31,11 @@ const EMPTY: BusinessInfo = {
 type Props = {
   initial?: Partial<BusinessInfo>;
   onSubmit?: (data: BusinessInfo) => Promise<void> | void;
+  copy: OnboardingCopy["business"];
+  common: OnboardingCopy["common"];
 };
 
-export function BusinessInfoStep({ initial, onSubmit }: Props) {
+export function BusinessInfoStep({ initial, onSubmit, copy, common }: Props) {
   const [data, setData] = useState<BusinessInfo>({ ...EMPTY, ...initial });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,10 +73,8 @@ export function BusinessInfoStep({ initial, onSubmit }: Props) {
   return (
     <form onSubmit={onFormSubmit} className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Business info</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          The legal entity that signs the partner agreement and receives payouts.
-        </p>
+        <h2 className="text-lg font-semibold text-gray-900">{copy.title}</h2>
+        <p className="text-sm text-gray-500 mt-1">{copy.subtitle}</p>
       </div>
 
       {error && (
@@ -81,56 +83,56 @@ export function BusinessInfoStep({ initial, onSubmit }: Props) {
         </div>
       )}
 
-      <Field label="Legal name" required>
+      <Field label={copy.legal_name.label} required>
         <input
           type="text"
           required
           value={data.legal_name}
           onChange={(e) => set("legal_name", e.target.value)}
-          placeholder="GoMiamm Test Kitchen LLC"
+          placeholder={copy.legal_name.placeholder}
           className={INPUT_CLS}
         />
       </Field>
 
-      <Field label="Doing business as" hint="Trade name shown to customers, if different from the legal name.">
+      <Field label={copy.dba.label} hint={copy.dba.hint}>
         <input
           type="text"
           value={data.dba}
           onChange={(e) => set("dba", e.target.value)}
-          placeholder="The Kitchen"
+          placeholder={copy.dba.placeholder}
           className={INPUT_CLS}
         />
       </Field>
 
-      <Field label="Business address" required>
+      <Field label={copy.address.label} required>
         <textarea
           required
           rows={2}
           value={data.address}
           onChange={(e) => set("address", e.target.value)}
-          placeholder="123 Main St, St Augustine FL 32084"
+          placeholder={copy.address.placeholder}
           className={`${INPUT_CLS} resize-none`}
         />
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Phone" required>
+        <Field label={copy.phone.label} required>
           <input
             type="tel"
             required
             value={data.phone}
             onChange={(e) => set("phone", e.target.value)}
-            placeholder="+1 555 555 1234"
+            placeholder={copy.phone.placeholder}
             className={INPUT_CLS}
           />
         </Field>
-        <Field label="Tax ID (EIN or SSN)" required hint="Used for 1099 / W-9 tax reporting. Never shown to customers.">
+        <Field label={copy.tax_id.label} required hint={copy.tax_id.hint}>
           <input
             type="text"
             required
             value={data.tax_id}
             onChange={(e) => set("tax_id", e.target.value)}
-            placeholder="12-3456789"
+            placeholder={copy.tax_id.placeholder}
             className={INPUT_CLS}
             inputMode="numeric"
             autoComplete="off"
@@ -144,7 +146,7 @@ export function BusinessInfoStep({ initial, onSubmit }: Props) {
           disabled={busy || !canSubmit}
           className="inline-flex items-center px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {busy ? "Saving…" : "Continue"}
+          {busy ? common.saving : common.continue}
         </button>
       </div>
     </form>

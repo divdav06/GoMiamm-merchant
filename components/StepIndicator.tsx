@@ -13,13 +13,27 @@ export type OnboardingStatus =
   | "contract_pending"
   | "completed";
 
-type Step = { num: 1 | 2 | 3 | 4; label: string };
-export const STEPS: Step[] = [
-  { num: 1, label: "Business" },
-  { num: 2, label: "Operations" },
-  { num: 3, label: "Banking" },
-  { num: 4, label: "Contract" },
+type Step = { num: 1 | 2 | 3 | 4; key: "business" | "operations" | "banking" | "contract" };
+const STEP_KEYS: Step[] = [
+  { num: 1, key: "business" },
+  { num: 2, key: "operations" },
+  { num: 3, key: "banking" },
+  { num: 4, key: "contract" },
 ];
+
+export type StepLabels = {
+  business: string;
+  operations: string;
+  banking: string;
+  contract: string;
+};
+
+const DEFAULT_LABELS: StepLabels = {
+  business: "Business",
+  operations: "Operations",
+  banking: "Banking",
+  contract: "Contract",
+};
 
 // Phase F.2 mapping (per spec):
 //   not_started + business_info → step 1 (Business)
@@ -50,14 +64,21 @@ function toneFor(stepNum: number, current: number): Tone {
   return "upcoming";
 }
 
-export function StepIndicator({ status }: { status: OnboardingStatus }) {
+export function StepIndicator({
+  status,
+  copy,
+}: {
+  status: OnboardingStatus;
+  copy?: StepLabels;
+}) {
   const current = currentStepFor(status);
+  const labels = copy ?? DEFAULT_LABELS;
 
   return (
     <ol className="flex items-center">
-      {STEPS.map((s, idx) => {
+      {STEP_KEYS.map((s, idx) => {
         const tone = toneFor(s.num, current);
-        const isLast = idx === STEPS.length - 1;
+        const isLast = idx === STEP_KEYS.length - 1;
         return (
           <li key={s.num} className={`flex items-center ${isLast ? "" : "flex-1"}`}>
             <div className="flex items-center gap-2 shrink-0">
@@ -70,7 +91,7 @@ export function StepIndicator({ status }: { status: OnboardingStatus }) {
                   "text-gray-400 font-medium",
                 ].join(" ")}
               >
-                {s.label}
+                {labels[s.key]}
               </span>
             </div>
             {!isLast && (

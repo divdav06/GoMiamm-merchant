@@ -7,6 +7,7 @@ import { ContractStep } from "@/components/onboarding/ContractStep";
 import { OperationsStep, type OperationsInfo } from "@/components/onboarding/OperationsStep";
 import { StepIndicator, type OnboardingStatus } from "@/components/StepIndicator";
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
+import { getOnboardingCopy, pickLocale } from "@/lib/onboardingCopy";
 import { createAdminSupabase } from "@/lib/supabaseAdmin";
 import { createServerSupabase } from "@/lib/supabase";
 
@@ -34,7 +35,11 @@ export default async function OnboardingPage() {
   const supabase = createServerSupabase(cookies());
   const admin = createAdminSupabase();
   const [storeRes, signupRes, payoutRes] = await Promise.all([
-    supabase.from("stores").select("onboarding_status").eq("id", access.storeId).maybeSingle(),
+    supabase
+      .from("stores")
+      .select("onboarding_status, preferred_language")
+      .eq("id", access.storeId)
+      .maybeSingle(),
     supabase
       .from("restaurant_signups")
       .select("business_info, operations_info")
@@ -50,6 +55,8 @@ export default async function OnboardingPage() {
   if (status === "completed") {
     redirect("/dashboard");
   }
+  const locale = pickLocale(storeRes.data?.preferred_language as string | null | undefined);
+  const copy = getOnboardingCopy(locale);
 
   const businessInfo = (signupRes.data?.business_info as Partial<BusinessInfo> | null) ?? undefined;
   const operationsInfo = (signupRes.data?.operations_info as Partial<OperationsInfo> | null) ?? undefined;
@@ -62,22 +69,34 @@ export default async function OnboardingPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-gray-900">Onboarding</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{copy.page.title}</h1>
         <p className="text-gray-500 text-sm mt-1">{access.storeName}</p>
       </header>
 
-      <StepIndicator status={status} />
+      <StepIndicator status={status} copy={copy.steps} />
 
       {onBusinessStep ? (
-        <BusinessInfoStep initial={businessInfo} onSubmit={saveBusinessInfo} />
+        <BusinessInfoStep
+          initial={businessInfo}
+          onSubmit={saveBusinessInfo}
+          copy={copy.business}
+          common={copy.common}
+        />
       ) : onOperationsStep ? (
-        <OperationsStep initial={operationsInfo} onSubmit={saveOperationsInfo} />
+        <OperationsStep
+          initial={operationsInfo}
+          onSubmit={saveOperationsInfo}
+          copy={copy.operations}
+          common={copy.common}
+        />
       ) : onBankingStep ? (
         <BankingStep
           payoutsEnabled={payoutsEnabled}
           onConnect={startBankingOnboarding}
           onRefresh={refreshBankingStatus}
           onContinue={completeBanking}
+          copy={copy.banking}
+          common={copy.common}
         />
       ) : onContractStep ? (
         <ContractStep
@@ -91,6 +110,7 @@ export default async function OnboardingPage() {
             email: access.email ?? "",
           }}
           onSubmit={signContract}
+          copy={copy.contract}
         />
       ) : null}
     </div>
