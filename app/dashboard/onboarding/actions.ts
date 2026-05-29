@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { BusinessInfo } from "@/components/onboarding/BusinessInfoStep";
+import type { OperationsInfo } from "@/components/onboarding/OperationsStep";
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
 import { createAdminSupabase } from "@/lib/supabaseAdmin";
 
@@ -74,6 +75,57 @@ export async function saveBusinessInfo(data: BusinessInfo): Promise<void> {
     .update({ onboarding_status: "operations" })
     .eq("id", access.storeId)
     .in("onboarding_status", ["not_started", "business_info"]);
+  if (storeErr) throw storeErr;
+
+  revalidatePath("/dashboard/onboarding");
+}
+
+export async function saveOperationsInfo(data: OperationsInfo): Promise<void> {
+  const access = await requireOwner();
+
+  // Server-side re-validation. Client gates on the same conditions but
+  // can be bypassed.
+  if (!String(data.cuisine_type ?? "").trim()) {
+    throw new Error("cuisine_type required");
+  }
+  if (!Number.isFinite(data.kitchen_capacity) || data.kitchen_capacity <= 0) {
+    throw new Error("kitchen_capacity must be a positive number");
+  }
+  if (!Number.isFinite(data.delivery_radius_km) || data.delivery_radius_km <= 0) {
+    throw new Error("delivery_radius_km must be a positive number");
+  }
+
+  const normalized: OperationsInfo = {
+    cuisine_type: data.cuisine_type.trim(),
+    kitchen_capacity: data.kitchen_capacity,
+    delivery_radius_km: data.delivery_radius_km,
+  };
+
+  const admin = createAdminSupabase();
+
+  // Upsert keyed on store_id UNIQUE; touch only operations_info +
+  // current_step + updated_at so business_info / banking_info on an
+  // existing row stay intact.
+  const { error: upsertErr } = await admin
+    .from("restaurant_signups")
+    .upsert(
+      {
+        store_id: access.storeId,
+        operations_info: normalized,
+        current_step: "banking",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "store_id" },
+    );
+  if (upsertErr) throw upsertErr;
+
+  // Race-safe advance: only bump 'operations' → 'banking'. If the
+  // merchant has somehow already moved past banking, leave them.
+  const { error: storeErr } = await admin
+    .from("stores")
+    .update({ onboarding_status: "banking" })
+    .eq("id", access.storeId)
+    .in("onboarding_status", ["operations"]);
   if (storeErr) throw storeErr;
 
   revalidatePath("/dashboard/onboarding");
