@@ -1,9 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
-import SignatureCanvas from "react-signature-canvas";
 
 import type { OnboardingCopy } from "@/lib/onboardingCopy";
+
+import type { SignaturePadHandle } from "./SignaturePad";
+
+// react-signature-canvas references `window`/`document` in its UMD
+// bundle, which crashes SSR if imported on the server. Loading the
+// wrapper through next/dynamic with ssr:false keeps the lib entirely
+// off the server-render path and only ships it to the browser.
+const SignaturePad = dynamic(() => import("./SignaturePad"), {
+  ssr: false,
+  loading: () => <div className="w-full h-44 bg-gray-50 animate-pulse" />,
+});
 
 // Phase F.6 — Contract signing step. Renders a short summary of the
 // counterparty info gathered so far (business + operations), the legal
@@ -43,7 +54,10 @@ type Props = {
 };
 
 export function ContractStep({ summary, onSubmit, copy }: Props) {
-  const sigRef = useRef<SignatureCanvas | null>(null);
+  // SignaturePad hands us a stable handle once it mounts (clear /
+  // toDataURL / isEmpty), routed through onReady instead of a ref so
+  // we don't have to bridge a ref through next/dynamic.
+  const sigHandle = useRef<SignaturePadHandle | null>(null);
   const [signerName, setSignerName] = useState("");
   const [signerTitle, setSignerTitle] = useState("");
   const [esign, setEsign] = useState(false);
@@ -65,14 +79,14 @@ export function ContractStep({ summary, onSubmit, copy }: Props) {
     !busy;
 
   function onClear() {
-    sigRef.current?.clear();
+    sigHandle.current?.clear();
     setHasDrawn(false);
   }
 
   async function onFormSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
-    const dataUrl = sigRef.current?.toDataURL("image/png");
+    const dataUrl = sigHandle.current?.toDataURL("image/png");
     if (!dataUrl) {
       setError("Please sign in the box before submitting.");
       return;
@@ -177,12 +191,12 @@ export function ContractStep({ summary, onSubmit, copy }: Props) {
           </button>
         </div>
         <div className="rounded-lg border border-gray-300 bg-white overflow-hidden">
-          <SignatureCanvas
-            ref={(ref) => {
-              sigRef.current = ref;
-            }}
+          <SignaturePad
             penColor="#111827"
             onEnd={() => setHasDrawn(true)}
+            onReady={(handle) => {
+              sigHandle.current = handle;
+            }}
             canvasProps={{
               width: 600,
               height: 180,
