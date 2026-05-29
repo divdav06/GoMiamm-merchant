@@ -5,14 +5,7 @@ import { revalidatePath } from "next/cache";
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
 import { createAdminSupabase } from "@/lib/supabaseAdmin";
 
-export type DaySchedule = {
-  is_open: boolean;
-  open: string;   // "HH:MM" 24h
-  close: string;  // "HH:MM" 24h
-};
-export type WeeklyHours = Record<DayKey, DaySchedule>;
-export type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-export const DAY_KEYS: DayKey[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+import { DAY_KEYS, type WeeklyHours } from "./types";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 

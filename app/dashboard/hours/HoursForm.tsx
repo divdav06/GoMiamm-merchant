@@ -2,14 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import {
-  DAY_KEYS,
-  type DayKey,
-  type WeeklyHours,
-  saveWeeklyHours,
-  setOpenNow,
-  setPause,
-} from "./actions";
+import { saveWeeklyHours, setOpenNow, setPause } from "./actions";
+import { DAY_KEYS, type DayKey, type WeeklyHours } from "./types";
 
 type Props = {
   initialOpenNow: boolean;

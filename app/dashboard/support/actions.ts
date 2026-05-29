@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
 import { createAdminSupabase } from "@/lib/supabaseAdmin";
 
+import type { SendMessageResult } from "./types";
+
 // Mirrors driver-app/app/support.tsx's send() — find-or-create a root
 // ticket for the current user in mailbox='support' inbox='restaurant',
 // then either seed it (root) or append a child (parent_id=root.id).
@@ -19,12 +21,6 @@ async function requireAuthed() {
   if (!access) throw new Error("Unauthorized");
   return access;
 }
-
-export type SendMessageResult = {
-  rootId: string;
-  messageId: string;
-  created_root: boolean;
-};
 
 export async function sendMessage(body: string): Promise<SendMessageResult> {
   const access = await requireAuthed();
