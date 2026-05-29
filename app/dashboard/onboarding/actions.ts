@@ -246,6 +246,10 @@ export async function signContract(data: SignContractInput): Promise<void> {
     accepted_esign: data.accepted_esign,
     accepted_authority: data.accepted_authority,
     accepted_information_correct: data.accepted_information_correct,
+    // Merchant-portal flow: pass our existing store so the edge
+    // function links the contract row to it instead of inserting a
+    // duplicate. Owner-email match is verified server-side.
+    existing_store_id: access.storeId,
   };
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
