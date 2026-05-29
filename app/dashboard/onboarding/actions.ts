@@ -311,7 +311,9 @@ export async function signContract(data: SignContractInput): Promise<string> {
   // applies a stale prefetched /dashboard payload (rendered when
   // onboarding_status was still contract_pending) and throws inside
   // Next.js's navigation machinery before any error boundary can catch.
-  // is_approved is always false at this point in the merchant-portal
-  // flow (admin must approve), so /dashboard/pending is always correct.
-  return "/dashboard/pending";
+  // restaurant-sign-contract auto-approves at sign time (F.8 reverted)
+  // and flips stores.is_approved=true + is_active=true, so the merchant
+  // lands on a live dashboard. /dashboard/pending stays in code as the
+  // manual-override fallback path.
+  return "/dashboard";
 }
