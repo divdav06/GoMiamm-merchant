@@ -201,7 +201,7 @@ const CONTRACT_BUCKET = "restaurant-contracts";
 // posterity (post-Y10 is somebody-else's problem).
 const CONTRACT_URL_TTL_SECONDS = 10 * 365 * 24 * 60 * 60;
 
-export async function signContract(data: SignContractInput): Promise<void> {
+export async function signContract(data: SignContractInput): Promise<string> {
   const access = await requireOwner();
   const admin = createAdminSupabase();
 
@@ -304,4 +304,14 @@ export async function signContract(data: SignContractInput): Promise<void> {
   if (storeErr) throw storeErr;
 
   revalidatePath("/dashboard/onboarding");
+
+  // Hard-nav destination for the caller. Mirrors the signup fix in
+  // d2be09e: returning the URL string lets ContractStep set
+  // window.location.href and bypass the Router Cache, which otherwise
+  // applies a stale prefetched /dashboard payload (rendered when
+  // onboarding_status was still contract_pending) and throws inside
+  // Next.js's navigation machinery before any error boundary can catch.
+  // is_approved is always false at this point in the merchant-portal
+  // flow (admin must approve), so /dashboard/pending is always correct.
+  return "/dashboard/pending";
 }

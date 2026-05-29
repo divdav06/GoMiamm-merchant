@@ -49,7 +49,7 @@ type CounterpartySummary = {
 
 type Props = {
   summary: CounterpartySummary;
-  onSubmit: (data: SignContractInput) => Promise<void>;
+  onSubmit: (data: SignContractInput) => Promise<string>;
   copy: OnboardingCopy["contract"];
 };
 
@@ -94,7 +94,7 @@ export function ContractStep({ summary, onSubmit, copy }: Props) {
     setBusy(true);
     setError(null);
     try {
-      await onSubmit({
+      const next = await onSubmit({
         signer_printed_name: signerName.trim(),
         signer_title: signerTitle.trim(),
         signature_data_url: dataUrl,
@@ -102,9 +102,14 @@ export function ContractStep({ summary, onSubmit, copy }: Props) {
         accepted_authority: authority,
         accepted_information_correct: infoCorrect,
       });
+      // Hard navigation — mirrors the signup fix (d2be09e). router.replace /
+      // revalidate-driven redirects after signContract were applying the stale
+      // prefetched /dashboard RSC payload (rendered while still at
+      // contract_pending) and throwing inside Next.js's navigation machinery.
+      // Don't reset busy — the page is about to unload.
+      window.location.href = next;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
       setBusy(false);
     }
   }
