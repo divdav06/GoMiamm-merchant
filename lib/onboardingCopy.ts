@@ -119,6 +119,20 @@ export type OnboardingCopy = {
     cta_sign: string;
     busy_signing: string;
   };
+  // Phase F.8 — post-onboarding "under review" screen, shown when
+  // onboarding_status='completed' but stores.is_approved is still
+  // false. Friendly waiting screen with email notification expectation.
+  pending: {
+    title: string;
+    subtitle: string;
+    timeline_heading: string;
+    timeline_signed: string;
+    timeline_payouts: string;
+    timeline_review: string;
+    email_notice: (email: string) => string;
+    timing: string;
+    sign_out: string;
+  };
 };
 
 const en: OnboardingCopy = {
@@ -217,6 +231,19 @@ const en: OnboardingCopy = {
     acceptance_info: "The information above is accurate and current.",
     cta_sign: "Sign & complete onboarding",
     busy_signing: "Signing…",
+  },
+  pending: {
+    title: "Your application is under review",
+    subtitle:
+      "Thanks for signing! Our team is reviewing your store before activating it on GoMiamm.",
+    timeline_heading: "Where you are",
+    timeline_signed: "Partner contract signed",
+    timeline_payouts: "Stripe payouts connected",
+    timeline_review: "Awaiting admin approval",
+    email_notice: (email) =>
+      `We'll email ${email} the moment your store goes live. No action needed on your end.`,
+    timing: "Reviews usually finish within 1 business day.",
+    sign_out: "Sign out",
   },
 };
 
@@ -325,6 +352,19 @@ const fr: OnboardingCopy = {
       "Les informations ci-dessus sont exactes et à jour.",
     cta_sign: "Signer et finaliser l'intégration",
     busy_signing: "Signature en cours…",
+  },
+  pending: {
+    title: "Votre demande est en cours d'examen",
+    subtitle:
+      "Merci d'avoir signé ! Notre équipe vérifie votre établissement avant son activation sur GoMiamm.",
+    timeline_heading: "Où vous en êtes",
+    timeline_signed: "Contrat de partenariat signé",
+    timeline_payouts: "Versements Stripe configurés",
+    timeline_review: "En attente d'approbation administrative",
+    email_notice: (email) =>
+      `Nous enverrons un e-mail à ${email} dès l'activation de votre établissement. Aucune action requise de votre part.`,
+    timing: "Les examens sont généralement traités sous 1 jour ouvré.",
+    sign_out: "Se déconnecter",
   },
 };
 
@@ -436,6 +476,19 @@ const es: OnboardingCopy = {
       "La información anterior es correcta y está al día.",
     cta_sign: "Firmar y finalizar el registro",
     busy_signing: "Firmando…",
+  },
+  pending: {
+    title: "Tu solicitud está en revisión",
+    subtitle:
+      "¡Gracias por firmar! Nuestro equipo está revisando tu tienda antes de activarla en GoMiamm.",
+    timeline_heading: "En qué punto estás",
+    timeline_signed: "Contrato de partner firmado",
+    timeline_payouts: "Pagos de Stripe conectados",
+    timeline_review: "A la espera de aprobación administrativa",
+    email_notice: (email) =>
+      `Enviaremos un correo a ${email} en cuanto tu tienda esté activa. No tienes que hacer nada más.`,
+    timing: "Las revisiones suelen completarse en 1 día hábil.",
+    sign_out: "Cerrar sesión",
   },
 };
 

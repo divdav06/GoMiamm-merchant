@@ -11,12 +11,20 @@ import { createServerSupabase } from "@/lib/supabase";
 // unauthed visitors out of /dashboard/*, but it doesn't know about the
 // merchant role — that check lives here.
 //
-// Phase F.2: also reads stores.onboarding_status. When the merchant
-// hasn't finished the guided onboarding, we redirect to
-// /dashboard/onboarding for every other dashboard route. The loop
-// guard uses startsWith("/dashboard/onboarding") so future sub-routes
-// (e.g. /dashboard/onboarding/banking) count as "already on the
-// onboarding flow" and don't re-trigger the redirect.
+// Three nested gates run in order:
+//
+//   1. Auth + partner role (checkPartnerAccess). Failure bounces to
+//      /api/sign-out so cookies clear and we don't loop.
+//   2. Phase F.2 — onboarding_status !== 'completed' redirects to
+//      /dashboard/onboarding (with a startsWith loop guard).
+//   3. Phase F.8 — onboarding completed but stores.is_approved still
+//      false redirects to /dashboard/pending (awaiting admin review).
+//      Inverse guard: when approved, /dashboard/pending bounces to
+//      /dashboard so a freshly-approved merchant doesn't get stuck.
+//
+// The pending route renders without the sidebar/topbar chrome (no
+// nav items would work anyway since they'd all bounce back), so we
+// branch the layout shell on onPending.
 export default async function DashboardLayout({
   children,
 }: {
@@ -33,15 +41,32 @@ export default async function DashboardLayout({
   const supabase = createServerSupabase(cookies());
   const { data: store } = await supabase
     .from("stores")
-    .select("onboarding_status")
+    .select("onboarding_status, is_approved")
     .eq("id", access.storeId)
     .maybeSingle();
   const onboardingStatus = (store?.onboarding_status as string | undefined) ?? "not_started";
+  const isApproved = !!store?.is_approved;
 
   const pathname = headers().get("x-pathname") ?? "";
   const onOnboarding = pathname.startsWith("/dashboard/onboarding");
+  const onPending = pathname.startsWith("/dashboard/pending");
+
   if (onboardingStatus !== "completed" && !onOnboarding) {
     redirect("/dashboard/onboarding");
+  }
+  if (onboardingStatus === "completed" && !isApproved && !onPending) {
+    redirect("/dashboard/pending");
+  }
+  if (onboardingStatus === "completed" && isApproved && onPending) {
+    redirect("/dashboard");
+  }
+
+  if (onPending) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        {children}
+      </main>
+    );
   }
 
   return (
