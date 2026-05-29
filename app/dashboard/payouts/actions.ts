@@ -31,7 +31,14 @@ function baseUrl(): string {
 // mint a fresh onboarding link and return its URL. Idempotent on the
 // account-creation half; the onboarding link is single-use + short-
 // lived per Stripe and minted fresh every call.
-export async function createConnectAccount(): Promise<{ url: string }> {
+//
+// `returnTo` optionally overrides where Stripe sends the merchant on
+// completion / refresh (default: /dashboard/payouts). The onboarding
+// funnel (phase F.5) overrides to /dashboard/onboarding so the
+// merchant lands back on the BankingStep card after finishing Stripe.
+export async function createConnectAccount(
+  opts?: { returnTo?: string },
+): Promise<{ url: string }> {
   const access = await requireAuthed();
   const admin = createAdminSupabase();
 
@@ -65,10 +72,11 @@ export async function createConnectAccount(): Promise<{ url: string }> {
     if (error) throw error;
   }
 
+  const returnPath = opts?.returnTo ?? "/dashboard/payouts";
   const link = await createAccountOnboardingLink(
     accountId,
-    `${baseUrl()}/dashboard/payouts?stripe=refresh`,
-    `${baseUrl()}/dashboard/payouts?stripe=return`,
+    `${baseUrl()}${returnPath}?stripe=refresh`,
+    `${baseUrl()}${returnPath}?stripe=return`,
   );
   revalidatePath("/dashboard/payouts");
   return { url: link.url };
