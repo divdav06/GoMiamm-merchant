@@ -28,6 +28,13 @@ const EMPTY: BusinessInfo = {
   tax_id: "",
 };
 
+// Coerce anything (null, undefined, number, etc.) coming from
+// restaurant_signups.business_info jsonb into a string before it
+// reaches state. A null leak would crash data.address.trim() below.
+function safeStr(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
 type Props = {
   initial?: Partial<BusinessInfo>;
   onSubmit?: (data: BusinessInfo) => Promise<void> | void;
@@ -36,7 +43,13 @@ type Props = {
 };
 
 export function BusinessInfoStep({ initial, onSubmit, copy, common }: Props) {
-  const [data, setData] = useState<BusinessInfo>({ ...EMPTY, ...initial });
+  const [data, setData] = useState<BusinessInfo>({
+    legal_name: safeStr(initial?.legal_name),
+    dba: safeStr(initial?.dba),
+    address: safeStr(initial?.address),
+    phone: safeStr(initial?.phone),
+    tax_id: safeStr(initial?.tax_id),
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

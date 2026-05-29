@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { signInWithPassword } from "@/lib/auth-client";
@@ -9,20 +8,25 @@ import { signInWithPassword } from "@/lib/auth-client";
 import { signUpRestaurant } from "./actions";
 
 // Public self-service merchant registration. Mirrors the visual
-// language of /login (same card, brand chip, field styling, footer
-// help line) so the two pages feel like one product.
+// language of /login.
 //
 // Flow on submit:
 //   1. signUpRestaurant server action creates auth user + profile +
 //      store + restaurant_users link with rollback on any failure
-//   2. On success, sign the user in client-side with the same password
-//      so the cookie session is established
-//   3. router.replace("/dashboard") — the dashboard layout's onboarding
-//      gate will redirect to /dashboard/onboarding for the new store
-//      since its onboarding_status='not_started'
+//   2. signInWithPassword establishes the client-side auth cookie
+//   3. window.location.href = "/dashboard" — HARD NAVIGATION on
+//      purpose. router.replace("/dashboard") was hitting a stale
+//      Router Cache entry for /dashboard (the prefetched/cached RSC
+//      payload from before the cookie was set), which threw a client-
+//      side exception no error boundary could catch. A plain hard
+//      navigation drops the SPA state, refetches with the new cookie,
+//      and matches the working anchor-link pattern we verified in the
+//      manual-continue debug panel.
+//
+// The dashboard layout will redirect the freshly-signed-up merchant
+// to /dashboard/onboarding because their stores.onboarding_status is
+// 'not_started'.
 export default function SignUpPage() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [restaurantName, setRestaurantName] = useState("");
@@ -51,10 +55,10 @@ export default function SignUpPage() {
         setBusy(false);
         return;
       }
-      // Account is fully provisioned server-side. Now establish the
-      // client-side auth cookie by signing in with the same password.
       await signInWithPassword(email.trim(), password);
-      router.replace("/dashboard");
+      // Hard navigation — see comment at the top of the file for why
+      // we don't use router.replace here.
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
