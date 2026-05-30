@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import { saveWeeklyHours, setOpenNow, setPause } from "./actions";
+import { saveWeeklyHours, setAutoAccept, setOpenNow, setPause } from "./actions";
 import { DAY_KEYS, type DayKey, type WeeklyHours } from "./types";
 
 type Props = {
   initialOpenNow: boolean;
   initialPauseUntil: string | null;
   initialSchedule: WeeklyHours;
+  initialAutoAccept: boolean;
 };
 
 const DAY_LABEL: Record<DayKey, string> = {
@@ -29,10 +30,16 @@ function pauseRemainingMinutes(until: string | null, now: number): number {
   return ms <= 0 ? 0 : Math.ceil(ms / 60_000);
 }
 
-export function HoursForm({ initialOpenNow, initialPauseUntil, initialSchedule }: Props) {
+export function HoursForm({
+  initialOpenNow,
+  initialPauseUntil,
+  initialSchedule,
+  initialAutoAccept,
+}: Props) {
   const [openNow, setOpenNowLocal] = useState(initialOpenNow);
   const [pauseUntil, setPauseUntilLocal] = useState<string | null>(initialPauseUntil);
   const [schedule, setSchedule] = useState<WeeklyHours>(initialSchedule);
+  const [autoAccept, setAutoAcceptLocal] = useState(initialAutoAccept);
 
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +75,12 @@ export function HoursForm({ initialOpenNow, initialPauseUntil, initialSchedule }
       () => setOpenNow(next),
       () => {},
     );
+  }
+
+  function onToggleAutoAccept() {
+    const next = !autoAccept;
+    setAutoAcceptLocal(next); // optimistic
+    runAction(() => setAutoAccept(next));
   }
 
   function onPause(minutes: number | null) {
@@ -129,6 +142,37 @@ export function HoursForm({ initialOpenNow, initialPauseUntil, initialSchedule }
             />
           </div>
         </button>
+      </section>
+
+      {/* Auto-accept toggle. When on, paid orders flip to accepted
+          automatically while the store is open. The manual Accept
+          button on the Orders page still works either way. */}
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Auto-accept paid orders
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              When on, orders flip to <strong>Accepted</strong> automatically as
+              soon as payment succeeds, as long as your store is open. When off,
+              you accept each order by hand from the Orders page.
+            </p>
+          </div>
+          <label className="inline-flex items-center gap-2 cursor-pointer shrink-0 mt-1">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={autoAccept}
+              onChange={onToggleAutoAccept}
+              disabled={pending}
+            />
+            <span className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-brand transition-colors relative">
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${autoAccept ? "translate-x-5" : ""}`} />
+            </span>
+            <span className="text-xs font-medium text-gray-700 w-8">{autoAccept ? "On" : "Off"}</span>
+          </label>
+        </div>
       </section>
 
       {/* Rush mode / pause */}

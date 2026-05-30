@@ -34,7 +34,7 @@ export default async function HoursPage() {
   const supabase = createServerSupabase(cookies());
   const { data: store } = await supabase
     .from("stores")
-    .select("id, name, is_open_now, pause_orders_until, hours_json")
+    .select("id, name, is_open_now, pause_orders_until, hours_json, auto_accept_enabled")
     .eq("id", access.storeId)
     .maybeSingle();
 
@@ -62,6 +62,7 @@ export default async function HoursPage() {
         initialOpenNow={!!store.is_open_now}
         initialPauseUntil={store.pause_orders_until ?? null}
         initialSchedule={schedule}
+        initialAutoAccept={store.auto_accept_enabled !== false}
       />
     </div>
   );

@@ -46,6 +46,21 @@ export async function setOpenNow(next: boolean): Promise<void> {
   revalidatePath("/dashboard/hours");
 }
 
+// When true, stripe-webhook payment_intent.succeeded auto-flips
+// paid orders from pending → accepted if the store is currently
+// open. When false the merchant must hit Accept by hand. The manual
+// Accept button stays in the Orders page either way.
+export async function setAutoAccept(next: boolean): Promise<void> {
+  const access = await requireAuthed();
+  const admin = createAdminSupabase();
+  const { error } = await admin
+    .from("stores")
+    .update({ auto_accept_enabled: next })
+    .eq("id", access.storeId);
+  if (error) throw error;
+  revalidatePath("/dashboard/hours");
+}
+
 // Pass minutes in the future to pause; pass null to clear the pause.
 export async function setPause(minutes: number | null): Promise<void> {
   const access = await requireAuthed();
