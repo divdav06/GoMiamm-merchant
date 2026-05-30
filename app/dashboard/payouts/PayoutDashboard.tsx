@@ -310,17 +310,38 @@ function EarningsTile({
   bucket: EarningsBucket;
   commissionPct: number;
 }) {
+  // Itemized breakdown: gross → commission deduction → net. Display
+  // only — commission_rate is read-only at the database layer (column
+  // GRANT SELECT not UPDATE for authenticated). The signed contract
+  // is the only path to change it.
+  const commissionAmount = (bucket.gross * commissionPct) / 100;
+  const net = bucket.gross - commissionAmount;
   return (
     <div className="rounded-2xl shadow-sm p-5 border bg-white border-gray-200">
-      <div className="text-xs uppercase tracking-wide font-semibold text-gray-400">
-        {label}
+      <div className="flex items-baseline justify-between">
+        <div className="text-xs uppercase tracking-wide font-semibold text-gray-400">
+          {label}
+        </div>
+        <div className="text-[11px] text-gray-400">
+          {bucket.count} order{bucket.count === 1 ? "" : "s"}
+        </div>
       </div>
-      <div className="text-2xl font-bold mt-1 text-gray-900">
-        {dollars(netOf(bucket.gross, commissionPct))}
-      </div>
-      <div className="text-xs mt-1 text-gray-500">
-        {bucket.count} order{bucket.count === 1 ? "" : "s"} · {dollars(bucket.gross)} gross
-      </div>
+      <dl className="mt-3 space-y-1 text-sm">
+        <div className="flex justify-between">
+          <dt className="text-gray-600">Gross</dt>
+          <dd className="font-medium text-gray-900 tabular-nums">{dollars(bucket.gross)}</dd>
+        </div>
+        <div className="flex justify-between">
+          <dt className="text-gray-600">
+            GoMiamm commission <span className="tabular-nums">{commissionPct}%</span>
+          </dt>
+          <dd className="font-medium text-rose-700 tabular-nums">−{dollars(commissionAmount)}</dd>
+        </div>
+        <div className="flex justify-between border-t border-gray-100 pt-1.5 mt-1">
+          <dt className="font-semibold text-gray-900">Net</dt>
+          <dd className="font-bold text-lg text-gray-900 tabular-nums">{dollars(net)}</dd>
+        </div>
+      </dl>
     </div>
   );
 }

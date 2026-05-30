@@ -58,6 +58,12 @@ export default async function PayoutsPage() {
   // Earnings rollups — gross subtotal of delivered orders for the
   // store, bucketed today / 7-day / 30-day. Restaurant's net is
   // computed in the client via stores.commission_rate.
+  //
+  // commission_rate is read-only at the database layer (column-level
+  // GRANT SELECT but not UPDATE for authenticated; UPDATE only
+  // exists via service-role through the contract signing path).
+  // No edit control is rendered for it anywhere in the merchant
+  // surfaces — display-only.
   const supabase = createServerSupabase(cookies());
   const since30d = new Date(Date.now() - 30 * ONE_DAY_MS).toISOString();
   const { data: deliveredOrders } = await supabase
@@ -67,7 +73,6 @@ export default async function PayoutsPage() {
     .eq("status", "delivered")
     .gte("delivered_at", since30d);
 
-  // Commission rate for net-pay math.
   const { data: storeMeta } = await supabase
     .from("stores")
     .select("commission_rate")
