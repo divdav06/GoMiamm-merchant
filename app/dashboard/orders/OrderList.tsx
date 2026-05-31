@@ -6,12 +6,19 @@ import { createBrowserSupabase } from "@/lib/supabase";
 
 import { OrderCard } from "./OrderCard";
 
+export type SelectedOption = {
+  group_name: string;
+  label: string;
+  price_delta: number;
+};
+
 export type OrderItem = {
   id: string;
   name: string;
   quantity: number;
   price: number;
   subtotal: number;
+  selected_options: SelectedOption[] | null;
 };
 
 export type ActiveOrder = {
@@ -85,7 +92,7 @@ export function OrderList({ storeId, initialOrders }: Props) {
       .select(`
         id, order_number, status, subtotal, delivery_fee, service_fee, tip, total,
         client_id, client_notes, created_at,
-        items:order_items(id, name, quantity, price, subtotal)
+        items:order_items(id, name, quantity, price, subtotal, selected_options)
       `)
       .eq("id", orderId)
       .maybeSingle();

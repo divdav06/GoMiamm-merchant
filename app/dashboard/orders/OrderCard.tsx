@@ -74,12 +74,19 @@ export function OrderCard({ order }: Props) {
         {/* Items */}
         <ul className="mt-3 space-y-1.5">
           {order.items?.length ? order.items.map((item) => (
-            <li key={item.id} className="flex justify-between text-sm">
-              <span className="text-gray-800">
-                <span className="font-semibold text-brand mr-2">×{item.quantity}</span>
-                {item.name}
-              </span>
-              <span className="text-gray-500 tabular-nums">{dollars(item.subtotal ?? item.price * item.quantity)}</span>
+            <li key={item.id} className="text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-800">
+                  <span className="font-semibold text-brand mr-2">×{item.quantity}</span>
+                  {item.name}
+                </span>
+                <span className="text-gray-500 tabular-nums">{dollars(item.subtotal ?? item.price * item.quantity)}</span>
+              </div>
+              {item.selected_options && item.selected_options.length > 0 && (
+                <div className="text-xs text-gray-500 pl-6">
+                  {item.selected_options.map((o) => o.label).join(", ")}
+                </div>
+              )}
             </li>
           )) : (
             <li className="text-sm text-gray-400">No items recorded.</li>
