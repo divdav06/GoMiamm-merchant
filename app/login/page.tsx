@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import { signInWithPassword } from "@/lib/auth-client";
 
@@ -10,7 +10,18 @@ const ERROR_COPY: Record<string, string> = {
   not_partner: "That account isn't a GoMiamm partner. Contact your account manager if this is unexpected.",
 };
 
+// useSearchParams() forces this subtree to client-render, so it must
+// sit under a Suspense boundary or `next build` fails the /login
+// prerender. The default export provides that boundary.
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryError = searchParams.get("error");
