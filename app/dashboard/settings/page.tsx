@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   const { data: store } = await supabase
     .from("stores")
     .select(
-      "name, description, address, phone, category, website_url, preferred_language, owner_email, is_open_now, hours_json",
+      "name, description, address, phone, category, website_url, preferred_language, contract_pdf_url, owner_email, is_open_now, hours_json",
     )
     .eq("id", access.storeId)
     .maybeSingle();
@@ -119,6 +119,31 @@ export default async function SettingsPage() {
               );
             })}
           </ul>
+        )}
+      </section>
+
+      {/* Documents — view-only signed contract, parity with app */}
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Documents
+        </h2>
+        {store?.contract_pdf_url ? (
+          <a
+            href={store.contract_pdf_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:text-brand-600"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <path d="M14 2v6h6" />
+            </svg>
+            View signed contract
+          </a>
+        ) : (
+          <p className="text-sm text-gray-500">
+            No signed contract on file yet.
+          </p>
         )}
       </section>
 
