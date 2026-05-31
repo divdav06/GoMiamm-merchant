@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
 import { createAdminSupabase } from "@/lib/supabaseAdmin";
 
+import { isSupportedLanguage } from "./languages";
+
 // Server actions for the merchant settings surface. Same contract as
 // menu/actions.ts + hours/actions.ts:
 //   1. Verify the caller via checkPartnerAccess (cookie-bridged JWT
@@ -45,6 +47,23 @@ export async function updateStoreProfile(form: FormData): Promise<void> {
   const { error } = await admin
     .from("stores")
     .update({ name, description, address, phone, category, website_url })
+    .eq("id", access.storeId);
+  if (error) throw error;
+
+  revalidatePath("/dashboard/settings");
+}
+
+// Writes stores.preferred_language — same column + UPDATE grant the app
+// uses in storeProfile.ts setPreferredLanguage. Honored across devices
+// and by edge-function emails/notifications + kitchen tickets.
+export async function setPreferredLanguage(code: string): Promise<void> {
+  const access = await requireAuthed();
+  if (!isSupportedLanguage(code)) throw new Error("Unsupported language");
+  const admin = createAdminSupabase();
+
+  const { error } = await admin
+    .from("stores")
+    .update({ preferred_language: code })
     .eq("id", access.storeId);
   if (error) throw error;
 

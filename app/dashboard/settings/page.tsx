@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
 import { createServerSupabase } from "@/lib/supabase";
 
+import { LanguagePicker } from "./LanguagePicker";
 import { ProfileForm } from "./ProfileForm";
 
 type DaySchedule = { is_open?: boolean; open?: string; close?: string };
@@ -26,7 +27,7 @@ export default async function SettingsPage() {
   const { data: store } = await supabase
     .from("stores")
     .select(
-      "name, description, address, phone, category, website_url, owner_email, is_open_now, hours_json",
+      "name, description, address, phone, category, website_url, preferred_language, owner_email, is_open_now, hours_json",
     )
     .eq("id", access.storeId)
     .maybeSingle();
@@ -72,6 +73,14 @@ export default async function SettingsPage() {
             }
           />
         </div>
+      </section>
+
+      {/* Language — parity with native app Settings tab */}
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Language
+        </h2>
+        <LanguagePicker current={store?.preferred_language ?? null} />
       </section>
 
       {/* Weekly hours summary */}
