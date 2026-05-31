@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { signOut } from "@/lib/auth-client";
@@ -19,7 +18,6 @@ function initialsFromEmail(email: string | null): string {
 }
 
 export function TopBar({ storeName, email }: TopBarProps) {
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   // Clear the Supabase session from the browser side, then bounce

@@ -20,13 +20,6 @@ export type BusinessInfo = {
   tax_id: string;
 };
 
-const EMPTY: BusinessInfo = {
-  legal_name: "",
-  dba: "",
-  address: "",
-  phone: "",
-  tax_id: "",
-};
 
 // Coerce anything (null, undefined, number, etc.) coming from
 // restaurant_signups.business_info jsonb into a string before it

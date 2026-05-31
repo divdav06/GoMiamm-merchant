@@ -4,7 +4,7 @@ import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
 import { createServerSupabase } from "@/lib/supabase";
 
 import { HoursForm } from "./HoursForm";
-import { DAY_KEYS, type DayKey, type WeeklyHours } from "./types";
+import { DAY_KEYS, type WeeklyHours } from "./types";
 
 const DEFAULT_DAY = { is_open: true, open: "08:00", close: "22:00" };
 

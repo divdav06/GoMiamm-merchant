@@ -16,7 +16,7 @@ export default async function DashboardHome() {
           Welcome back<span className="text-brand">.</span>
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          You're signed in as <span className="font-medium text-gray-700">{access.role}</span> for{" "}
+          You&apos;re signed in as <span className="font-medium text-gray-700">{access.role}</span> for{" "}
           <span className="font-medium text-gray-700">{access.storeName}</span>.
         </p>
       </div>
