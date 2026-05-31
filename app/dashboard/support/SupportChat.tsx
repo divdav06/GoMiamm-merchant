@@ -16,7 +16,6 @@ export type SupportMessage = {
 };
 
 type Props = {
-  userId: string;
   initialRootId: string | null;
   initialStatus: string | null;
   initialMessages: SupportMessage[];
@@ -28,7 +27,7 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export function SupportChat({ userId, initialRootId, initialStatus, initialMessages }: Props) {
+export function SupportChat({ initialRootId, initialStatus, initialMessages }: Props) {
   const [rootId, setRootId] = useState<string | null>(initialRootId);
   const [rootStatus, setRootStatus] = useState<string | null>(initialStatus);
   const [messages, setMessages] = useState<SupportMessage[]>(initialMessages);
@@ -143,7 +142,7 @@ export function SupportChat({ userId, initialRootId, initialStatus, initialMessa
         {messages.length === 0 ? (
           <EmptyState />
         ) : (
-          messages.map((m) => <Bubble key={m.id} message={m} userId={userId} />)
+          messages.map((m) => <Bubble key={m.id} message={m} />)
         )}
         {ariaThinking && <TypingBubble />}
       </div>
@@ -191,13 +190,13 @@ function EmptyState() {
     <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-2">
       <div className="text-base font-semibold text-gray-700">How can we help?</div>
       <div className="text-sm text-gray-500 max-w-xs">
-        Type a message below. ARIA replies first — if it can't help, our team takes over.
+        Type a message below. ARIA replies first — if it can&apos;t help, our team takes over.
       </div>
     </div>
   );
 }
 
-function Bubble({ message, userId: _userId }: { message: SupportMessage; userId: string }) {
+function Bubble({ message }: { message: SupportMessage }) {
   const fromAdmin = !!message.from_admin;
   const isAria = message.agent === "aria";
   return (

@@ -45,7 +45,6 @@ export default async function SupportPage() {
       </header>
 
       <SupportChat
-        userId={access.userId}
         initialRootId={rootRow?.id ?? null}
         initialStatus={rootRow?.status ?? null}
         initialMessages={messages}

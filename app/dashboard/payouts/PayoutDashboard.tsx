@@ -32,10 +32,6 @@ function centsToDollars(cents: number): number {
   return cents / 100;
 }
 
-function netOf(gross: number, commissionPct: number): number {
-  return gross * (1 - commissionPct / 100);
-}
-
 function formatDate(unixSecs: number): string {
   return new Date(unixSecs * 1000).toLocaleDateString(undefined, {
     month: "short",
@@ -214,7 +210,7 @@ export function PayoutDashboard(props: Props) {
             </div>
             {payouts.length === 0 ? (
               <div className="px-5 py-10 text-center text-sm text-gray-500">
-                No payouts yet. Once Stripe runs the first one it'll show up here.
+                No payouts yet. Once Stripe runs the first one it&apos;ll show up here.
               </div>
             ) : (
               <ul className="divide-y divide-gray-100">
