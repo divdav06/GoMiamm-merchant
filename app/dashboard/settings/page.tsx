@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
 import { createServerSupabase } from "@/lib/supabase";
 
+import { ProfileForm } from "./ProfileForm";
+
 type DaySchedule = { is_open?: boolean; open?: string; close?: string };
 type WeeklyHours = Record<string, DaySchedule | undefined>;
 
@@ -23,7 +25,9 @@ export default async function SettingsPage() {
   const supabase = createServerSupabase(cookies());
   const { data: store } = await supabase
     .from("stores")
-    .select("name, address, phone, owner_email, is_open_now, hours_json")
+    .select(
+      "name, description, address, phone, category, website_url, owner_email, is_open_now, hours_json",
+    )
     .eq("id", access.storeId)
     .maybeSingle();
 
@@ -34,31 +38,40 @@ export default async function SettingsPage() {
       <header>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-500 text-sm mt-1">
-          {access.storeName} · review your store profile. Bank + notification
+          {access.storeName} · manage your store profile. Bank + notification
           preferences coming soon.
         </p>
       </header>
 
-      {/* Store profile */}
-      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-3">
+      {/* Store profile — editable, parity with native app Settings tab */}
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
           Store profile
         </h2>
-        <Row label="Name" value={store?.name ?? access.storeName} />
-        <Row label="Address" value={store?.address ?? "—"} />
-        <Row label="Phone" value={store?.phone ?? "—"} />
-        <Row label="Contact email" value={store?.owner_email ?? access.email ?? "—"} />
-        <Row
-          label="Currently"
-          value={
-            <span className={[
-              "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
-              store?.is_open_now ? "bg-emerald-100 text-emerald-800" : "bg-gray-200 text-gray-700",
-            ].join(" ")}>
-              {store?.is_open_now ? "Open" : "Closed"}
-            </span>
-          }
+        <ProfileForm
+          profile={{
+            name: store?.name ?? access.storeName,
+            description: store?.description ?? null,
+            address: store?.address ?? "",
+            phone: store?.phone ?? null,
+            category: store?.category ?? null,
+            website_url: store?.website_url ?? null,
+          }}
         />
+        <div className="border-t border-gray-100 pt-4 space-y-3">
+          <Row label="Contact email" value={store?.owner_email ?? access.email ?? "—"} />
+          <Row
+            label="Currently"
+            value={
+              <span className={[
+                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
+                store?.is_open_now ? "bg-emerald-100 text-emerald-800" : "bg-gray-200 text-gray-700",
+              ].join(" ")}>
+                {store?.is_open_now ? "Open" : "Closed"}
+              </span>
+            }
+          />
+        </div>
       </section>
 
       {/* Weekly hours summary */}
