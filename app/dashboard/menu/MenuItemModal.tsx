@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { createMenuItem, updateMenuItem } from "./actions";
+import { createMenuItem, getMenuItemOptions, setMenuItemOptions, updateMenuItem } from "./actions";
 import type { MenuItem } from "./MenuList";
+import { OptionsEditor } from "./OptionsEditor";
+import { type GroupDraft, groupsToPayload, rowsToGroups } from "./optionTypes";
 
 type Props =
   | { mode: "create"; onClose: () => void; item?: undefined }
@@ -23,8 +25,25 @@ export function MenuItemModal(props: Props) {
   );
   const [isAvailable, setIsAvailable] = useState(initial?.is_available ?? true);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [groups, setGroups] = useState<GroupDraft[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load existing option groups when editing an item.
+  useEffect(() => {
+    if (props.mode !== "edit") return;
+    let cancelled = false;
+    getMenuItemOptions(props.item.id)
+      .then((rows) => {
+        if (!cancelled) setGroups(rowsToGroups(rows));
+      })
+      .catch(() => {
+        /* leave groups empty; editor still usable */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,11 +59,10 @@ export function MenuItemModal(props: Props) {
       fd.set("is_available", isAvailable ? "on" : "false");
       if (photo) fd.set("photo", photo);
 
-      if (props.mode === "create") {
-        await createMenuItem(fd);
-      } else {
-        await updateMenuItem(props.item.id, fd);
-      }
+      const itemId = props.mode === "create" ? await createMenuItem(fd) : props.item.id;
+      if (props.mode === "edit") await updateMenuItem(itemId, fd);
+      // Persist option groups (full-replace) for both create + edit.
+      await setMenuItemOptions(itemId, groupsToPayload(groups));
       props.onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -140,6 +158,10 @@ export function MenuItemModal(props: Props) {
               </p>
             )}
           </Field>
+
+          <div className="border-t border-gray-100 pt-4">
+            <OptionsEditor groups={groups} onChange={setGroups} disabled={busy} />
+          </div>
 
           <label className="flex items-center gap-3 cursor-pointer pt-1">
             <input

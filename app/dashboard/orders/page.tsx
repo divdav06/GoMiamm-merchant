@@ -32,7 +32,7 @@ export default async function OrdersPage() {
       client_id,
       client_notes,
       created_at,
-      items:order_items(id, name, quantity, price, subtotal)
+      items:order_items(id, name, quantity, price, subtotal, selected_options)
     `)
     .eq("store_id", access.storeId)
     .in("status", ACTIVE_STATUSES as unknown as string[])

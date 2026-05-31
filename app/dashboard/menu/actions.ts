@@ -62,7 +62,9 @@ function parsePriceCents(raw: FormDataEntryValue | null): number {
   return cents;
 }
 
-export async function createMenuItem(form: FormData): Promise<void> {
+// Returns the new item's id so the modal can attach option groups in a
+// follow-up setMenuItemOptions call.
+export async function createMenuItem(form: FormData): Promise<string> {
   const access = await requireAuthed();
   const admin = createAdminSupabase();
 
@@ -84,7 +86,7 @@ export async function createMenuItem(form: FormData): Promise<void> {
   // cents; divide before persisting.
   const priceDollars = priceCents / 100;
 
-  const { error } = await admin
+  const { data, error } = await admin
     .from("menu_items")
     .insert({
       store_id: access.storeId,
@@ -94,10 +96,13 @@ export async function createMenuItem(form: FormData): Promise<void> {
       price: priceDollars,
       image_url: imageUrl,
       is_available: isAvailable,
-    });
+    })
+    .select("id")
+    .single();
   if (error) throw error;
 
   revalidatePath("/dashboard/menu");
+  return data.id as string;
 }
 
 export async function updateMenuItem(itemId: string, form: FormData): Promise<void> {
@@ -186,6 +191,75 @@ export async function deleteMenuItem(itemId: string): Promise<void> {
     .from("menu_items")
     .delete()
     .eq("id", itemId);
+  if (error) throw error;
+
+  revalidatePath("/dashboard/menu");
+}
+
+// ── Option groups / modifiers ───────────────────────────────────────
+
+type OptionRow = {
+  label: string;
+  price_delta: number | null;
+  is_available: boolean | null;
+  sort_order: number;
+};
+type GroupRow = {
+  id: string;
+  name: string;
+  min_select: number;
+  max_select: number;
+  sort_order: number;
+  options: OptionRow[];
+};
+
+// Fetch a menu item's option groups (+ their options) for the editor,
+// sorted by sort_order. Ownership-checked against the caller's store.
+export async function getMenuItemOptions(itemId: string): Promise<GroupRow[]> {
+  const access = await requireAuthed();
+  const admin = createAdminSupabase();
+
+  const { data: item, error: itemErr } = await admin
+    .from("menu_items")
+    .select("id, store_id")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (itemErr) throw itemErr;
+  if (!item || item.store_id !== access.storeId) throw new Error("Item not found for this store");
+
+  const { data: groups, error } = await admin
+    .from("menu_item_option_groups")
+    .select("id, name, min_select, max_select, sort_order, options:menu_item_options(label, price_delta, is_available, sort_order)")
+    .eq("menu_item_id", itemId)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+
+  return (groups ?? []).map((g) => ({
+    ...g,
+    options: [...((g.options as OptionRow[]) ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+  })) as GroupRow[];
+}
+
+// Transactional full-replace of a menu item's option groups via the
+// shared set_menu_item_options RPC. The service-role client carries no
+// auth.uid(), so the RPC permits service_role — we verify store
+// ownership here first (same guard as every other write in this file).
+export async function setMenuItemOptions(itemId: string, groups: unknown): Promise<void> {
+  const access = await requireAuthed();
+  const admin = createAdminSupabase();
+
+  const { data: item, error: itemErr } = await admin
+    .from("menu_items")
+    .select("id, store_id")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (itemErr) throw itemErr;
+  if (!item || item.store_id !== access.storeId) throw new Error("Item not found for this store");
+
+  const { error } = await admin.rpc("set_menu_item_options", {
+    p_menu_item_id: itemId,
+    p_groups: groups ?? [],
+  });
   if (error) throw error;
 
   revalidatePath("/dashboard/menu");
