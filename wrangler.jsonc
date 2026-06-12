@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gomiamm-merchant",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "routes": [{ "pattern": "partner.gomiamm.com", "custom_domain": true }]
+  // NOTE: server-only secrets (SUPABASE_SERVICE_ROLE_KEY, STRIPE_SECRET_KEY)
+  // are NOT declared here. They are set as Cloudflare Worker secrets via
+  // `wrangler secret put`, so they never live in the repo. Public build-time
+  // vars (NEXT_PUBLIC_*) are inlined by `next build` from the build env.
+}
