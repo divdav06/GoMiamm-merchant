@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { signInWithPassword } from "@/lib/auth-client";
@@ -22,7 +22,6 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const queryError = searchParams.get("error");
 
@@ -38,9 +37,17 @@ function LoginForm() {
     setError(null);
     try {
       await signInWithPassword(email.trim(), password);
-      // The dashboard layout runs the restaurant_users check and will
-      // bounce non-partners to /login?error=not_partner via /api/sign-out.
-      router.replace("/dashboard");
+      // HARD NAVIGATION on purpose — mirrors app/signup/page.tsx.
+      // router.replace("/dashboard") applied a stale Router Cache RSC
+      // payload for /dashboard prefetched before the auth cookie was
+      // set (a redirect-to-/login from the middleware gate). That throw
+      // happens inside Next's internal navigation machinery, so the
+      // catch below never fired, busy was never reset, and the button
+      // hung on "Signing in…" forever. A hard navigation drops SPA
+      // state and refetches /dashboard with the new cookie. The
+      // middleware/dashboard gate then routes by restaurant_users +
+      // onboarding_status / is_approved.
+      window.location.href = "/dashboard";
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
