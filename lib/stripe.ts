@@ -16,7 +16,7 @@ type StripeError = { error?: { message?: string; code?: string; type?: string } 
 
 async function call<T = unknown>(
   path: string,
-  init: { method?: string; body?: URLSearchParams; query?: Record<string, string | number | undefined>; stripeAccount?: string } = {},
+  init: { method?: string; body?: URLSearchParams; query?: Record<string, string | number | undefined>; stripeAccount?: string; idempotencyKey?: string } = {},
 ): Promise<T> {
   const method = init.method ?? "GET";
   const headers: Record<string, string> = {
@@ -24,6 +24,7 @@ async function call<T = unknown>(
   };
   if (init.body) headers["Content-Type"] = "application/x-www-form-urlencoded";
   if (init.stripeAccount) headers["Stripe-Account"] = init.stripeAccount;
+  if (init.idempotencyKey) headers["Idempotency-Key"] = init.idempotencyKey;
 
   let url = `${STRIPE_API}${path}`;
   if (init.query && Object.keys(init.query).length > 0) {
@@ -47,6 +48,19 @@ async function call<T = unknown>(
     throw new Error(errMsg);
   }
   return parsed as T;
+}
+
+// ── Refunds ────────────────────────────────────────────────────────
+
+// Refund a captured PaymentIntent in full. Used when a restaurant rejects
+// an order the customer already paid for (payments capture immediately, so
+// a reject after payment must refund). The idempotency key keeps a double
+// reject from issuing two refunds. stripe-webhook's charge.refunded handler
+// then flips orders.payment_status='refunded' and records the refunds row.
+export async function refundPaymentIntent(paymentIntentId: string, idempotencyKey: string): Promise<void> {
+  const body = new URLSearchParams();
+  body.set("payment_intent", paymentIntentId);
+  await call("/refunds", { method: "POST", body, idempotencyKey });
 }
 
 // ── Connect Accounts ───────────────────────────────────────────────

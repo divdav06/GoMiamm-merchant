@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   const { data: store } = await supabase
     .from("stores")
     .select(
-      "name, description, address, phone, category, website_url, preferred_language, contract_pdf_url, owner_email, is_open_now, hours_json",
+      "name, description, address, phone, category, cuisine, website_url, preferred_language, contract_pdf_url, owner_email, is_open_now, hours_json",
     )
     .eq("id", access.storeId)
     .maybeSingle();
@@ -56,6 +56,7 @@ export default async function SettingsPage() {
             address: store?.address ?? "",
             phone: store?.phone ?? null,
             category: store?.category ?? null,
+            cuisine: store?.cuisine ?? null,
             website_url: store?.website_url ?? null,
           }}
         />

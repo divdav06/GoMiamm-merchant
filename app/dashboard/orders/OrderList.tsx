@@ -25,6 +25,7 @@ export type ActiveOrder = {
   id: string;
   order_number: string | null;
   status: string;
+  restaurant_status: string;
   subtotal: number | null;
   delivery_fee: number | null;
   service_fee: number | null;
@@ -41,7 +42,12 @@ type Props = {
   initialOrders: ActiveOrder[];
 };
 
-const ACTIVE_STATUSES = new Set(["pending", "accepted", "preparing", "ready_for_pickup"]);
+// Kitchen worklist membership: restaurant track open AND the driver hasn't
+// picked it up / it isn't terminal. Mirrors the server query in page.tsx.
+const REST_ACTIVE = new Set(["pending", "preparing", "ready_for_pickup"]);
+const DRIVER_DONE = new Set(["picking_up", "in_transit", "delivered", "cancelled"]);
+const isKitchenActive = (r: { restaurant_status?: string; status?: string }) =>
+  REST_ACTIVE.has(r.restaurant_status ?? "") && !DRIVER_DONE.has(r.status ?? "");
 
 // Three short beeps when a new pending order lands. We build the tone
 // in a freshly-created AudioContext on each chime so iOS Safari's
@@ -90,7 +96,7 @@ export function OrderList({ storeId, initialOrders }: Props) {
     const { data: order } = await supabase
       .from("orders")
       .select(`
-        id, order_number, status, subtotal, delivery_fee, service_fee, tip, total,
+        id, order_number, status, restaurant_status, subtotal, delivery_fee, service_fee, tip, total,
         client_id, client_notes, created_at,
         items:order_items(id, name, quantity, price, subtotal, selected_options)
       `)
@@ -123,8 +129,8 @@ export function OrderList({ storeId, initialOrders }: Props) {
         },
         async (payload) => {
           if (payload.eventType === "INSERT") {
-            const row = payload.new as { id: string; status: string };
-            if (!ACTIVE_STATUSES.has(row.status)) return;
+            const row = payload.new as { id: string; status: string; restaurant_status: string };
+            if (!isKitchenActive(row)) return;
             const full = await refetchOne(row.id);
             if (!full) return;
             setOrders((prev) => {
@@ -132,11 +138,12 @@ export function OrderList({ storeId, initialOrders }: Props) {
               return [...prev, full].sort(byCreatedAt);
             });
             orderIdsRef.current.add(full.id);
-            if (full.status === "pending") playNewOrderChime();
+            // New actionable order = restaurant auto-accepted → 'preparing'.
+            if (full.restaurant_status === "preparing") playNewOrderChime();
           } else if (payload.eventType === "UPDATE") {
-            const row = payload.new as { id: string; status: string };
+            const row = payload.new as { id: string; status: string; restaurant_status: string };
             // Order left the active window — remove.
-            if (!ACTIVE_STATUSES.has(row.status)) {
+            if (!isKitchenActive(row)) {
               setOrders((prev) => prev.filter((p) => p.id !== row.id));
               orderIdsRef.current.delete(row.id);
               return;
@@ -151,10 +158,9 @@ export function OrderList({ storeId, initialOrders }: Props) {
               return next.sort(byCreatedAt);
             });
             orderIdsRef.current.add(full.id);
-            // If this UPDATE actually moved an order INTO our active
-            // window for the first time (rare — most orders INSERT as
-            // pending) and the new status is pending, chime.
-            if (!wasKnown && full.status === "pending") playNewOrderChime();
+            // If this UPDATE moved an order INTO our active window for the
+            // first time (e.g. payment flipped pending → preparing), chime.
+            if (!wasKnown && full.restaurant_status === "preparing") playNewOrderChime();
           } else if (payload.eventType === "DELETE") {
             const row = payload.old as { id: string };
             setOrders((prev) => prev.filter((p) => p.id !== row.id));

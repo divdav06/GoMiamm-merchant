@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { checkPartnerAccess } from "@/lib/checkPartnerAccess";
+import { isValidCuisine } from "@/lib/cuisines";
 import { createAdminSupabase } from "@/lib/supabaseAdmin";
 
 import { isSupportedLanguage } from "./languages";
@@ -39,6 +40,11 @@ export async function updateStoreProfile(form: FormData): Promise<void> {
   const phone = String(form.get("phone") ?? "").trim() || null;
   const category = String(form.get("category") ?? "").trim() || null;
   const website_url = String(form.get("website_url") ?? "").trim() || null;
+  // Customer-facing cuisine token (drives home category chips + search).
+  // Empty = clear it; any non-empty value must be a known token.
+  const rawCuisine = String(form.get("cuisine") ?? "").trim();
+  const cuisine = rawCuisine === "" ? null : rawCuisine;
+  if (cuisine !== null && !isValidCuisine(cuisine)) throw new Error("Invalid cuisine.");
 
   // Same required-field rules as the app's saveStoreProfile.
   if (!name) throw new Error("Name is required.");
@@ -46,7 +52,7 @@ export async function updateStoreProfile(form: FormData): Promise<void> {
 
   const { error } = await admin
     .from("stores")
-    .update({ name, description, address, phone, category, website_url })
+    .update({ name, description, address, phone, category, cuisine, website_url })
     .eq("id", access.storeId);
   if (error) throw error;
 

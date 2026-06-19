@@ -1,5 +1,6 @@
 "use server";
 
+import { isValidCuisine } from "@/lib/cuisines";
 import { createAdminSupabase } from "@/lib/supabaseAdmin";
 
 // Public self-service merchant signup. Runs entirely on the server via
@@ -29,6 +30,7 @@ type Input = {
   email: string;
   password: string;
   restaurantName: string;
+  cuisine?: string | null;
 };
 
 const PLACEHOLDER_LAT = 0;
@@ -46,6 +48,8 @@ export async function signUpRestaurant(input: Input): Promise<SignUpResult> {
   const email = input.email.trim().toLowerCase();
   const password = input.password;
   const restaurantName = input.restaurantName.trim();
+  // Optional customer-facing cuisine token; ignore anything not in the set.
+  const cuisine = isValidCuisine(input.cuisine) ? input.cuisine : null;
 
   if (!email || !email.includes("@")) {
     return { ok: false, error: "Enter a valid email address." };
@@ -105,6 +109,7 @@ export async function signUpRestaurant(input: Input): Promise<SignUpResult> {
     .insert({
       name: restaurantName,
       category: PLACEHOLDER_CATEGORY,
+      cuisine, // null unless a valid customer-facing token was picked
       address: PLACEHOLDER_ADDRESS,
       lat: PLACEHOLDER_LAT,
       lng: PLACEHOLDER_LNG,

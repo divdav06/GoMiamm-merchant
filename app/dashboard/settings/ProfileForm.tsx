@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { CUISINES } from "@/lib/cuisines";
+
 import { updateStoreProfile } from "./actions";
 
 export type StoreProfile = {
@@ -10,6 +12,7 @@ export type StoreProfile = {
   address: string;
   phone: string | null;
   category: string | null;
+  cuisine: string | null;
   website_url: string | null;
 };
 
@@ -23,6 +26,7 @@ export function ProfileForm({ profile }: { profile: StoreProfile }) {
   const [address, setAddress] = useState(profile.address ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
   const [category, setCategory] = useState(profile.category ?? "");
+  const [cuisine, setCuisine] = useState(profile.cuisine ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(profile.website_url ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +38,7 @@ export function ProfileForm({ profile }: { profile: StoreProfile }) {
     address !== (profile.address ?? "") ||
     phone !== (profile.phone ?? "") ||
     category !== (profile.category ?? "") ||
+    cuisine !== (profile.cuisine ?? "") ||
     websiteUrl !== (profile.website_url ?? "");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -49,6 +54,7 @@ export function ProfileForm({ profile }: { profile: StoreProfile }) {
       fd.set("address", address);
       fd.set("phone", phone);
       fd.set("category", category);
+      fd.set("cuisine", cuisine);
       fd.set("website_url", websiteUrl);
       await updateStoreProfile(fd);
       setSaved(true);
@@ -139,6 +145,25 @@ export function ProfileForm({ profile }: { profile: StoreProfile }) {
           />
         </Field>
       </div>
+
+      <Field label="Cuisine">
+        <select
+          value={cuisine}
+          onChange={(e) => {
+            setCuisine(e.target.value);
+            setSaved(false);
+          }}
+          className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+        >
+          <option value="">— Select cuisine —</option>
+          {CUISINES.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+        <span className="block mt-1 text-xs text-gray-400">
+          Shown to customers under the matching home-screen category chip.
+        </span>
+      </Field>
 
       <Field label="Website">
         <input

@@ -2,17 +2,17 @@
 
 import { useState, useTransition } from "react";
 
-import { acceptOrder, markPreparing, markReadyForPickup } from "./actions";
+import { markReadyForPickup } from "./actions";
 import type { ActiveOrder } from "./OrderList";
 import { RejectModal } from "./RejectModal";
 
 type Props = { order: ActiveOrder };
 
 const STATUS_LABELS: Record<string, { label: string; tone: "amber" | "blue" | "violet" | "green" }> = {
-  pending: { label: "New", tone: "amber" },
-  accepted: { label: "Accepted", tone: "blue" },
+  pending: { label: "Awaiting payment", tone: "amber" },
   preparing: { label: "Preparing", tone: "violet" },
   ready_for_pickup: { label: "Ready for pickup", tone: "green" },
+  rejected: { label: "Rejected", tone: "amber" },
 };
 
 function shortId(order: ActiveOrder): string {
@@ -39,7 +39,7 @@ export function OrderCard({ order }: Props) {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const status = STATUS_LABELS[order.status] ?? { label: order.status, tone: "amber" as const };
+  const status = STATUS_LABELS[order.restaurant_status] ?? { label: order.restaurant_status, tone: "amber" as const };
   const customerName = order.client?.full_name ?? "Customer";
 
   function run(action: () => Promise<void>) {
@@ -112,17 +112,24 @@ export function OrderCard({ order }: Props) {
           </div>
         )}
 
-        {/* Actions */}
+        {/* Actions — acceptance is automatic on payment, so there is NO
+            Accept button. A preparing order can be marked Ready or (rarely)
+            Rejected; a ready order just waits for the driver. */}
         <div className="mt-4 flex flex-wrap gap-2">
-          {order.status === "pending" && (
+          {order.restaurant_status === "pending" && (
+            <span className="text-sm text-gray-500 inline-flex items-center">
+              Awaiting payment confirmation.
+            </span>
+          )}
+          {order.restaurant_status === "preparing" && (
             <>
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => run(() => acceptOrder(order.id))}
+                onClick={() => run(() => markReadyForPickup(order.id))}
                 className="inline-flex items-center px-3 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-600 disabled:opacity-50"
               >
-                Accept
+                Mark ready for pickup
               </button>
               <button
                 type="button"
@@ -134,27 +141,7 @@ export function OrderCard({ order }: Props) {
               </button>
             </>
           )}
-          {order.status === "accepted" && (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => run(() => markPreparing(order.id))}
-              className="inline-flex items-center px-3 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-600 disabled:opacity-50"
-            >
-              Mark preparing
-            </button>
-          )}
-          {order.status === "preparing" && (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => run(() => markReadyForPickup(order.id))}
-              className="inline-flex items-center px-3 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow-sm hover:bg-brand-600 disabled:opacity-50"
-            >
-              Mark ready for pickup
-            </button>
-          )}
-          {order.status === "ready_for_pickup" && (
+          {order.restaurant_status === "ready_for_pickup" && (
             <span className="text-sm text-gray-500 inline-flex items-center">
               Waiting for the driver to pick up.
             </span>

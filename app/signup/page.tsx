@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { signInWithPassword } from "@/lib/auth-client";
+import { CUISINES } from "@/lib/cuisines";
 
 import { signUpRestaurant } from "./actions";
 
@@ -30,6 +31,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [restaurantName, setRestaurantName] = useState("");
+  const [cuisine, setCuisine] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +51,7 @@ export default function SignUpPage() {
         email: email.trim(),
         password,
         restaurantName: restaurantName.trim(),
+        cuisine: cuisine || null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -105,6 +108,26 @@ export default function SignUpPage() {
               className={INPUT_CLS}
               placeholder="The Kitchen"
             />
+          </div>
+
+          <div>
+            <label
+              htmlFor="cuisine"
+              className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1"
+            >
+              Cuisine <span className="text-gray-400 normal-case font-normal">(optional)</span>
+            </label>
+            <select
+              id="cuisine"
+              value={cuisine}
+              onChange={(e) => setCuisine(e.target.value)}
+              className={INPUT_CLS}
+            >
+              <option value="">— Select cuisine —</option>
+              {CUISINES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
           </div>
 
           <div>

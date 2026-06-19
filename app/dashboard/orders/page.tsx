@@ -5,7 +5,10 @@ import { createServerSupabase } from "@/lib/supabase";
 
 import { OrderList, type ActiveOrder } from "./OrderList";
 
-const ACTIVE_STATUSES = ["pending", "accepted", "preparing", "ready_for_pickup"] as const;
+// Kitchen worklist = restaurant track still open AND not yet handed to a
+// moving driver / terminal. orders.status leaving {pending,accepted} means
+// the driver picked it up (or it was cancelled/delivered) → off the list.
+const REST_ACTIVE = ["pending", "preparing", "ready_for_pickup"] as const;
 
 export default async function OrdersPage() {
   const access = await checkPartnerAccess();
@@ -24,6 +27,7 @@ export default async function OrdersPage() {
       id,
       order_number,
       status,
+      restaurant_status,
       subtotal,
       delivery_fee,
       service_fee,
@@ -35,7 +39,8 @@ export default async function OrdersPage() {
       items:order_items(id, name, quantity, price, subtotal, selected_options)
     `)
     .eq("store_id", access.storeId)
-    .in("status", ACTIVE_STATUSES as unknown as string[])
+    .in("restaurant_status", REST_ACTIVE as unknown as string[])
+    .not("status", "in", "(picking_up,in_transit,delivered,cancelled)")
     .order("created_at", { ascending: true });
 
   if (error) {
