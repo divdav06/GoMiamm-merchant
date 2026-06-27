@@ -123,6 +123,7 @@ export async function rejectOrder(orderId: string, reason: string): Promise<void
     .update({
       restaurant_status: "rejected",
       status: "cancelled",
+      cancelled_by: "merchant",
       cancellation_reason: trimmed.slice(0, 500),
       cancelled_at: new Date().toISOString(),
     })
