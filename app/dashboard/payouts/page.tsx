@@ -16,6 +16,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 type AccountRow = {
   stripe_account_id: string | null;
+  stripe_account_region: string | null;
   payouts_enabled: boolean | null;
   charges_enabled: boolean | null;
   requirements_due: string[] | null;
@@ -30,10 +31,12 @@ export default async function PayoutsPage() {
   const admin = createAdminSupabase();
   const { data: accountRow } = await admin
     .from("restaurants_payout_accounts")
-    .select("stripe_account_id, payouts_enabled, charges_enabled, requirements_due")
+    .select("stripe_account_id, stripe_account_region, payouts_enabled, charges_enabled, requirements_due")
     .eq("store_id", access.storeId)
     .maybeSingle();
   const account = (accountRow as AccountRow | null) ?? null;
+  // Platform that owns the connected account (#6); existing rows = 'US'.
+  const region = account?.stripe_account_region ?? "US";
 
   // Stripe balance + payout history only when an account exists. If
   // Stripe is unreachable / unconfigured we degrade gracefully and let
@@ -43,12 +46,12 @@ export default async function PayoutsPage() {
   let stripeError: string | null = null;
   if (account?.stripe_account_id) {
     try {
-      balance = await getConnectedBalance(account.stripe_account_id);
+      balance = await getConnectedBalance(account.stripe_account_id, region);
     } catch (err) {
       stripeError = err instanceof Error ? err.message : String(err);
     }
     try {
-      const list = await listConnectedPayouts(account.stripe_account_id, 20);
+      const list = await listConnectedPayouts(account.stripe_account_id, 20, region);
       payouts = list.data;
     } catch {
       /* keep going — empty payouts list */

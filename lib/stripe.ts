@@ -91,34 +91,44 @@ export type StripeAccount = {
   settings?: { payouts?: { schedule?: { interval?: string; weekly_anchor?: string; monthly_anchor?: number } } };
 };
 
-export async function createExpressAccount(metadata: Record<string, string>): Promise<StripeAccount> {
+// countryCode (Stripe US/FR routing #3) sets the Express account's
+// country AND, via call(), which platform key creates it: FR -> SASU,
+// US/CA -> US LLC (Stripe supports a CA account on the US platform).
+// Defaults to "US" so any legacy caller stays byte-identical.
+// business_type stays "company" — restaurants are legal entities.
+export async function createExpressAccount(
+  metadata: Record<string, string>,
+  countryCode = "US",
+): Promise<StripeAccount> {
   const form = new URLSearchParams();
   form.set("type", "express");
-  form.set("country", "US");
+  form.set("country", countryCode);
   form.set("business_type", "company");
   form.set("capabilities[transfers][requested]", "true");
   form.set("capabilities[card_payments][requested]", "true");
   for (const [k, v] of Object.entries(metadata)) {
     form.set(`metadata[${k}]`, v);
   }
-  return call<StripeAccount>("/accounts", { method: "POST", body: form });
+  return call<StripeAccount>("/accounts", { method: "POST", body: form, countryCode });
 }
 
-export async function getAccount(accountId: string): Promise<StripeAccount> {
-  return call<StripeAccount>(`/accounts/${accountId}`);
+export async function getAccount(accountId: string, countryCode = "US"): Promise<StripeAccount> {
+  return call<StripeAccount>(`/accounts/${accountId}`, { countryCode });
 }
 
 export async function createAccountOnboardingLink(
   accountId: string,
   refreshUrl: string,
   returnUrl: string,
+  countryCode = "US",
 ): Promise<{ url: string }> {
   const form = new URLSearchParams();
   form.set("account", accountId);
   form.set("refresh_url", refreshUrl);
   form.set("return_url", returnUrl);
   form.set("type", "account_onboarding");
-  return call<{ url: string }>("/account_links", { method: "POST", body: form });
+  // Link must be minted on the platform that owns the acct_ (#3).
+  return call<{ url: string }>("/account_links", { method: "POST", body: form, countryCode });
 }
 
 // ── Balances + Payouts (per connected account, via Stripe-Account hdr) ──
@@ -129,8 +139,11 @@ export type StripeBalance = {
   pending: StripeBalanceAmount[];
 };
 
-export async function getConnectedBalance(accountId: string): Promise<StripeBalance> {
-  return call<StripeBalance>("/balance", { stripeAccount: accountId });
+// countryCode (Stripe US/FR routing #6) selects the platform key; the
+// connected account is still targeted via the Stripe-Account header.
+// Defaults to "US" so existing US rows are byte-identical.
+export async function getConnectedBalance(accountId: string, countryCode = "US"): Promise<StripeBalance> {
+  return call<StripeBalance>("/balance", { stripeAccount: accountId, countryCode });
 }
 
 export type StripePayout = {
@@ -146,17 +159,25 @@ export type StripePayout = {
 export async function listConnectedPayouts(
   accountId: string,
   limit = 20,
+  countryCode = "US",
 ): Promise<{ data: StripePayout[] }> {
   return call<{ data: StripePayout[] }>("/payouts", {
     stripeAccount: accountId,
     query: { limit },
+    countryCode,
   });
 }
 
+// MONEY PATH — the manual restaurant payout. countryCode (Stripe US/FR
+// routing #6) routes the payout through the platform that owns the
+// connected account, so an FR store's payout originates from the SASU
+// platform, not US. The connected acct is still targeted via the
+// Stripe-Account header; countryCode only picks the secret key.
 export async function createConnectedPayout(
   accountId: string,
   amount: number,
   currency: string,
+  countryCode = "US",
 ): Promise<StripePayout> {
   const form = new URLSearchParams();
   form.set("amount", String(amount));
@@ -165,5 +186,6 @@ export async function createConnectedPayout(
     method: "POST",
     body: form,
     stripeAccount: accountId,
+    countryCode,
   });
 }

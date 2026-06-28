@@ -9,6 +9,7 @@ import {
   createExpressAccount,
   getAccount,
   getConnectedBalance,
+  regionForCountry,
 } from "@/lib/stripe";
 import { createAdminSupabase } from "@/lib/supabaseAdmin";
 
@@ -44,9 +45,20 @@ export async function createConnectAccount(
 
   const { data: existing } = await admin
     .from(TABLE)
-    .select("stripe_account_id")
+    .select("stripe_account_id, stripe_account_region")
     .eq("store_id", access.storeId)
     .maybeSingle();
+
+  // Store country drives which platform owns the Connect account
+  // (Stripe US/FR routing #3): FR -> SASU, US/CA -> US LLC. Falls back
+  // to "US" when the store has no country_code yet -> byte-identical.
+  const { data: store } = await admin
+    .from("stores")
+    .select("country_code")
+    .eq("id", access.storeId)
+    .maybeSingle();
+  const countryCode = store?.country_code ?? "US";
+  const region = regionForCountry(countryCode);
 
   let accountId = existing?.stripe_account_id ?? null;
   if (!accountId) {
@@ -54,7 +66,7 @@ export async function createConnectAccount(
       store_id: access.storeId,
       store_name: access.storeName,
       created_by_user_id: access.userId,
-    });
+    }, countryCode);
     accountId = acct.id;
     const { error } = await admin
       .from(TABLE)
@@ -62,6 +74,7 @@ export async function createConnectAccount(
         {
           store_id: access.storeId,
           stripe_account_id: accountId,
+          stripe_account_region: region,
           payouts_enabled: !!acct.payouts_enabled,
           charges_enabled: !!acct.charges_enabled,
           requirements_due: acct.requirements?.currently_due ?? [],
@@ -72,11 +85,15 @@ export async function createConnectAccount(
     if (error) throw error;
   }
 
+  // Mint the onboarding link on the platform that owns the acct_. Prefer
+  // the region pinned at creation; fall back to the store's country.
+  const linkRegion = existing?.stripe_account_region ?? region;
   const returnPath = opts?.returnTo ?? "/dashboard/payouts";
   const link = await createAccountOnboardingLink(
     accountId,
     `${baseUrl()}${returnPath}?stripe=refresh`,
     `${baseUrl()}${returnPath}?stripe=return`,
+    linkRegion,
   );
   revalidatePath("/dashboard/payouts");
   return { url: link.url };
@@ -95,12 +112,13 @@ export async function checkAccountStatus(): Promise<{
 
   const { data: row } = await admin
     .from(TABLE)
-    .select("stripe_account_id")
+    .select("stripe_account_id, stripe_account_region")
     .eq("store_id", access.storeId)
     .maybeSingle();
   if (!row?.stripe_account_id) return null;
 
-  const acct = await getAccount(row.stripe_account_id);
+  // Read the connected account on the platform that owns it (#6).
+  const acct = await getAccount(row.stripe_account_id, row.stripe_account_region ?? "US");
   const requirements_due = acct.requirements?.currently_due ?? [];
   const { error } = await admin
     .from(TABLE)
@@ -130,13 +148,18 @@ export async function requestManualPayout(): Promise<{ id: string; amount: numbe
 
   const { data: row } = await admin
     .from(TABLE)
-    .select("stripe_account_id, payouts_enabled")
+    .select("stripe_account_id, payouts_enabled, stripe_account_region")
     .eq("store_id", access.storeId)
     .maybeSingle();
   if (!row?.stripe_account_id) throw new Error("No Stripe account on file");
   if (!row.payouts_enabled) throw new Error("Payouts not yet enabled on this account");
 
-  const balance = await getConnectedBalance(row.stripe_account_id);
+  // Region pinned at account creation (#6): the balance read and the
+  // payout (MONEY PATH) must both originate from the platform that owns
+  // the acct_ — FR store -> SASU, US/CA -> US LLC. Existing rows = 'US'.
+  const region = row.stripe_account_region ?? "US";
+
+  const balance = await getConnectedBalance(row.stripe_account_id, region);
   // Default to USD; Stripe returns each currency separately. Phase E
   // is US-only — when we open CA / FR, this becomes a loop over the
   // available[] array per currency.
@@ -145,7 +168,7 @@ export async function requestManualPayout(): Promise<{ id: string; amount: numbe
     throw new Error("No available USD balance to pay out");
   }
 
-  const payout = await createConnectedPayout(row.stripe_account_id, usd.amount, usd.currency);
+  const payout = await createConnectedPayout(row.stripe_account_id, usd.amount, usd.currency, region);
   revalidatePath("/dashboard/payouts");
   return { id: payout.id, amount: payout.amount };
 }
