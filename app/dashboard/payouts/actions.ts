@@ -160,15 +160,17 @@ export async function requestManualPayout(): Promise<{ id: string; amount: numbe
   const region = row.stripe_account_region ?? "US";
 
   const balance = await getConnectedBalance(row.stripe_account_id, region);
-  // Default to USD; Stripe returns each currency separately. Phase E
-  // is US-only — when we open CA / FR, this becomes a loop over the
-  // available[] array per currency.
-  const usd = balance.available.find((a) => a.currency.toLowerCase() === "usd");
-  if (!usd || usd.amount <= 0) {
-    throw new Error("No available USD balance to pay out");
+  // Settlement currency is one-per-store, derived from the account's
+  // region (FR SASU settles EUR; US LLC settles USD). Pick that single
+  // currency's available balance — Stripe returns each currency
+  // separately. (Single-currency stores: no need to loop over all.)
+  const expectedCurrency = region === "FR" ? "eur" : "usd";
+  const funds = balance.available.find((a) => a.currency.toLowerCase() === expectedCurrency);
+  if (!funds || funds.amount <= 0) {
+    throw new Error(`No available ${expectedCurrency.toUpperCase()} balance to pay out`);
   }
 
-  const payout = await createConnectedPayout(row.stripe_account_id, usd.amount, usd.currency, region);
+  const payout = await createConnectedPayout(row.stripe_account_id, funds.amount, funds.currency, region);
   revalidatePath("/dashboard/payouts");
   return { id: payout.id, amount: payout.amount };
 }
