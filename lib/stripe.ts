@@ -6,9 +6,27 @@
 
 const STRIPE_API = "https://api.stripe.com/v1";
 
-function key(): string {
-  const k = process.env.STRIPE_SECRET_KEY;
-  if (!k) throw new Error("STRIPE_SECRET_KEY not configured");
+// Region routing for the two GoMiamm Stripe platforms (mirrors the edge
+// helper supabase/functions/_shared/stripe.ts):
+//   'FR'                    → FR SASU account
+//   'US' | 'CA' | null | ?  → US LLC account (CA rides the US LLC)
+// Also accepts an already-resolved region string ('US'/'FR'); anything
+// that isn't 'FR' (case/space-insensitive) maps to 'US'.
+export type StripeRegion = "US" | "FR";
+
+export function regionForCountry(cc?: string | null): StripeRegion {
+  return (cc ?? "").trim().toUpperCase() === "FR" ? "FR" : "US";
+}
+
+// US falls back to the legacy STRIPE_SECRET_KEY so that, until
+// STRIPE_SECRET_KEY_US / STRIPE_SECRET_KEY_FR are set, every call keeps
+// hitting the existing US account exactly as before. FR has no fallback.
+function resolveStripeKey(ccOrRegion?: string | null): string {
+  const region = regionForCountry(ccOrRegion);
+  const k = region === "FR"
+    ? process.env.STRIPE_SECRET_KEY_FR
+    : (process.env.STRIPE_SECRET_KEY_US ?? process.env.STRIPE_SECRET_KEY);
+  if (!k) throw new Error(`stripe_key_unconfigured_${region}`);
   return k;
 }
 
@@ -16,11 +34,11 @@ type StripeError = { error?: { message?: string; code?: string; type?: string } 
 
 async function call<T = unknown>(
   path: string,
-  init: { method?: string; body?: URLSearchParams; query?: Record<string, string | number | undefined>; stripeAccount?: string; idempotencyKey?: string } = {},
+  init: { method?: string; body?: URLSearchParams; query?: Record<string, string | number | undefined>; stripeAccount?: string; idempotencyKey?: string; countryCode?: string | null } = {},
 ): Promise<T> {
   const method = init.method ?? "GET";
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${key()}`,
+    Authorization: `Bearer ${resolveStripeKey(init.countryCode)}`,
   };
   if (init.body) headers["Content-Type"] = "application/x-www-form-urlencoded";
   if (init.stripeAccount) headers["Stripe-Account"] = init.stripeAccount;
